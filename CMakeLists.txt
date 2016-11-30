@@ -19,13 +19,10 @@ FIND_PACKAGE (Boost 1.41.0 COMPONENTS unit_test_framework system)
 
 INCLUDE (FindPackageHandleStandardArgs)
 FIND_PATH (IMYSQL mysql/mysql.h)
-FIND_LIBRARY (LMYSQLCLIENT_R NAMES libmysqlclient_r.a
-                                   libmysqlclient.a
-                                   libmysqlclient_r.so
-                                   libmysqlclient.so PATH_SUFFIXES mysql)
+FIND_LIBRARY (LMYSQLCLIENT_R perconaserverclient_r PATH_SUFFIXES mysql)
 SET (Mysql_FIND_REQUIRED YES)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Mysql DEFAULT_MSG IMYSQL LMYSQLCLIENT_R)
-INCLUDE_DIRECTORIES ("${IMYSQL}/mysql")
+INCLUDE_DIRECTORIES ("${IMYSQL}/mysql" ${CMAKE_CURRENT_SOURCE_DIR})
 
 # Check whether we've found static or dynamic library
 STRING (REGEX MATCH ".*\\.a$" MYSQL_IS_STATIC ${LMYSQLCLIENT_R})
@@ -36,23 +33,23 @@ ELSE ()
 ENDIF ()
 
 FILE (GLOB HDR "*.h")
-INSTALL (FILES ${HDR} DESTINATION include)
-AUX_SOURCE_DIRECTORY (${CMAKE_SOURCE_DIR} SRC)
+# INSTALL (FILES ${HDR} DESTINATION include)
+AUX_SOURCE_DIRECTORY (${CMAKE_CURRENT_SOURCE_DIR} SRC)
 
-ADD_LIBRARY (slave_a ${SRC})
+ADD_LIBRARY (slave_a STATIC ${SRC})
 SET_TARGET_PROPERTIES (slave_a PROPERTIES OUTPUT_NAME slave)
 TARGET_LINK_LIBRARIES (slave_a ${LMYSQLCLIENT_R})
-INSTALL (TARGETS slave_a DESTINATION lib64)
+# INSTALL (TARGETS slave_a DESTINATION lib64)
 
 # Most probably statc mysql is built without fPIC, so, we can't build dynamic library with it
 IF (NOT MYSQL_IS_STATIC)
     ADD_LIBRARY (slave_so SHARED ${SRC})
     SET_TARGET_PROPERTIES (slave_so PROPERTIES OUTPUT_NAME slave)
     TARGET_LINK_LIBRARIES (slave_so ${LMYSQLCLIENT_R})
-    INSTALL (TARGETS slave_so DESTINATION lib64)
+    # INSTALL (TARGETS slave_so DESTINATION lib64)
 ENDIF ()
 
 IF (Boost_FOUND)
     ENABLE_TESTING ()
 ENDIF (Boost_FOUND)
-ADD_SUBDIRECTORY (test)
+# ADD_SUBDIRECTORY (test)

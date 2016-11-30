@@ -409,7 +409,7 @@ unsigned char* unpack_row(std::shared_ptr<slave::Table> table,
 
         if (!(cols[i / 8] & (1 << (i & 7)))) {
 
-            LOG_TRACE(log, "field " << field->getFieldName() << " is not in column list.");
+            LOG_TRACE(log, "field " << field->field_name << " is not in column list.");
             continue;
         }
 
@@ -424,18 +424,19 @@ unsigned char* unpack_row(std::shared_ptr<slave::Table> table,
 
             LOG_TRACE(log, "set_null found");
 
-        } else {
+            _row[field->field_name] = nullptr;
 
+        } else {
             // We only unpack the field if it was non-null
 
             ptr = (unsigned char*)field->unpack((const char*)ptr);
 
-            _row[field->getFieldName()] = std::make_pair(field->field_type, field->field_data);
+            _row[field->field_name] = field->field_data;
         }
 
         null_mask <<= 1;
 
-        LOG_TRACE(log, "field: " << field->getFieldName());
+        LOG_TRACE(log, "field: " << field->field_name);
 
     }
 

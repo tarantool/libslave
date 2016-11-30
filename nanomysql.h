@@ -18,7 +18,6 @@
 #include <mysql/mysql.h>
 #include "nanofield.h"
 #include <stdexcept>
-#include <stdio.h>
 #include <vector>
 
 namespace nanomysql {
@@ -131,6 +130,25 @@ public:
         ::mysql_close(m_conn);
     }
 
+    void select_db(const std::string& db_name)
+    {
+        if (::mysql_select_db(m_conn, db_name.c_str()))
+            throw_error("mysql_select_db() failed");
+    }
+
+    void get_fields(const std::string& tbl_name, fields_t& fields)
+    {
+        _mysql_res_wrap re(::mysql_list_fields(m_conn, tbl_name.c_str(), NULL));
+        if (re.s == NULL) {
+            throw_error("mysql_list_fields() failed");
+        }
+
+        ::MYSQL_FIELD* ff = ::mysql_fetch_fields(re.s);
+        for (unsigned cnt = ::mysql_field_count(m_conn); cnt; --cnt, ++ff) {
+            fields.insert(std::make_pair(ff->name, field(ff->name, ff->type, ff->length, ff->flags, ff->decimals)));
+        }
+    }
+
     void query(const std::string& q)
     {
         if (::mysql_real_query(m_conn, q.data(), q.size()) != 0)
@@ -159,7 +177,7 @@ public:
             fields_n.push_back(
                 fields.insert(fields.end(),
                               std::make_pair(ff->name,
-                                             field(ff->name, ff->type))));
+                                             field(ff->name, ff->type, ff->length, ff->flags, ff->decimals))));
         }
 
         while (1) {
@@ -177,6 +195,7 @@ public:
 
             for (size_t z = 0; z != num_fields; ++z) {
                 fields_n[z]->second.data.assign(row[z], lens[z]);
+                fields_n[z]->second.is_null = row[z] == 0;
             }
 
             f(fields);
@@ -193,3 +212,4 @@ public:
 }
 
 #endif
+// vim: et ts=4

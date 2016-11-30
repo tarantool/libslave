@@ -10,281 +10,201 @@
  * details.
  * You should have received a copy of the GNU Lesser General Public License
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
+ */
 
 #ifndef __SLAVE_FIELD_H_
 #define __SLAVE_FIELD_H_
 
 #include <string>
-#include <vector>
-#include <list>
-
 #include <boost/any.hpp>
-
 #include "collate.h"
+
+#include "my_time.h"
+#include <mysql/m_string.h>
+extern "C" {
+#include <decimal.h>
+}
 
 #ifdef test
 #undef test
 #endif /* test */
 
-namespace slave
-{
+// -------------------------------------------------------------------------------------------------
+
+namespace slave {
+
+// ----- base --------------------------------------------------------------------------------------
 
 class Field
 {
-public:
-    const std::string field_type;
-    const std::string field_name;
+	public:
+		const std::string field_name;
+		boost::any field_data;
 
-    boost::any field_data;
+		Field(const std::string& name) : field_name(name) {}
+		virtual ~Field() {}
 
-    virtual const char* unpack(const char *from) = 0;
-
-    Field(const std::string& field_name_arg, const std::string& type) :
-        field_type(type),
-        field_name(field_name_arg)
-        {}
-
-    virtual ~Field() {}
-
-    virtual unsigned int pack_length() const = 0;
-
-    const std::string getFieldName() {
-        return field_name;
-    }
+		virtual const char* unpack(const char *from) = 0;
+		virtual void unpack_str(const std::string &from) { field_data = from; }
 };
 
-class Field_num: public Field {
-public:
-    Field_num(const std::string& field_name_arg, const std::string& type);
+// ----- numbers -----------------------------------------------------------------------------------
+
+template<typename T, const unsigned length = sizeof(T)> class Field_num : public Field {
+	using Field::Field;
+
+	public:
+		const char* unpack(const char* from);
+		void unpack_str(const std::string &from);
+
+	private:
+		inline T get_value(const char *from);
 };
 
+template class Field_num<uint16, 1>;
+template class Field_num<uint16>;
+template class Field_num<uint32, 3>;
+template class Field_num<uint32>;
+template class Field_num<ulonglong>;
 
-class Field_str: public Field {
-public:
-    Field_str(const std::string& field_name_arg, const std::string& type);
+template class Field_num<int16, 1>;
+template class Field_num<int16>;
+template class Field_num<int32, 3>;
+template class Field_num<int32>;
+template class Field_num<longlong>;
+
+template class Field_num<float>;
+template class Field_num<double>;
+
+
+class Field_decimal : public Field {
+	public:
+		Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_);
+		const char* unpack(const char *from);
+
+	private:
+		const unsigned scale, precision, length;
 };
 
-class Field_longstr: public Field_str {
+// ----- date & time -------------------------------------------------------------------------------
 
-protected:
-    unsigned int field_length;
+class Field_temporal : public Field {
+	public:
+		Field_temporal(const std::string& name, const unsigned precision_)
+			: Field(name), precision(precision_) {}
 
-public:
-    Field_longstr(const std::string& field_name_arg, const std::string& type);
+		// set length
+		virtual void reset(bool is_old_storage_, bool ctor_call = false) = 0;
 
-    unsigned int pack_length() const {
-        return field_length;
-    }
-};
-
-
-class Field_real: public Field_num {
-public:
-    Field_real(const std::string& field_name_arg, const std::string& type);
-};
-
-class Field_tiny: public Field_num {
-    unsigned int pack_length() const { return 1; }
-public:
-    Field_tiny(const std::string& field_name_arg, const std::string& type);
-    const char* unpack(const char* from);
-};
-
-class Field_short: public Field_num {
-    unsigned int pack_length() const { return 2; }
-public:
-    Field_short(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_medium: public Field_num {
-    unsigned int pack_length() const { return 3; }
-public:
-    Field_medium(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_long: public Field_num {
-    unsigned int pack_length() const { return 4; }
-public:
-    Field_long(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_longlong: public Field_num {
-    unsigned int pack_length() const { return 8; }
-public:
-    Field_longlong(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_float: public Field_real {
-    unsigned int pack_length() const { return sizeof(float); }
-public:
-    Field_float(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_double: public Field_real {
-    unsigned int pack_length() const { return sizeof(double); }
-public:
-    Field_double(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_temporal: public Field_longstr {
-protected:
-    bool is_old_storage;
-public:
-    Field_temporal(const std::string& field_name_arg, const std::string& type, bool old_storage);
-    virtual ~Field_temporal() {}
-
-    virtual void reset(bool old_storage, bool ctor_call = false) = 0;
-};
-
-class Field_timestamp: public Field_temporal {
-public:
-    Field_timestamp(const std::string& field_name_arg, const std::string& type, bool old_storage);
-
-    void reset(bool old_storage, bool ctor_call = false);
-    const char* unpack(const char* from);
-};
-
-class Field_year: public Field_tiny {
-public:
-    Field_year(const std::string& field_name_arg, const std::string& type);
-};
-
-class Field_date: public Field_str {
-    unsigned int pack_length() const { return 3; }
-public:
-    Field_date(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_time: public Field_temporal {
-public:
-    Field_time(const std::string& field_name_arg, const std::string& type, bool old_storage);
-
-    void reset(bool old_storage, bool ctor_call = false);
-    const char* unpack(const char* from);
-};
-
-class Field_datetime: public Field_temporal {
-public:
-    Field_datetime(const std::string& field_name_arg, const std::string& type, bool old_storage);
-
-    void reset(bool old_storage, bool ctor_call = false);
-    const char* unpack(const char* from);
-};
-
-class Field_varstring: public Field_longstr {
-
-    // How many bytes are needed for holding the length
-    unsigned int length_bytes;
-
-    unsigned int pack_length() const { return (unsigned int) field_length+length_bytes; }
-
-public:
-    Field_varstring(const std::string& field_name_arg, const std::string& type,
-                    const collate_info& collate);
-
-    const char* unpack(const char* from);
-};
-
-class Field_blob: public Field_longstr {
-    unsigned int get_length(const char *ptr);
-public:
-    Field_blob(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-
-protected:
-    // Number of bytes for holding the data length
-    unsigned int packlength;
-};
-
-class Field_tinyblob: public Field_blob {
-public:
-    Field_tinyblob(const std::string& field_name_arg, const std::string& type);
-};
-
-class Field_mediumblob: public Field_blob {
-public:
-    Field_mediumblob(const std::string& field_name_arg, const std::string& type);
-};
-
-class Field_longblob: public Field_blob {
-public:
-    Field_longblob(const std::string& field_name_arg, const std::string& type);
-};
-
-class Field_enum: public Field_str {
-
-    unsigned int pack_length() const {
-        return (unsigned int)(count_elements < 255) ? 1 : 2;
-    }
-
-public:
-    Field_enum(const std::string& field_name_arg, const std::string& type);
-
-
-    const char* unpack(const char* from);
-
-protected:
-    unsigned int packlength;
-
-    // Number of elements in enum
-    unsigned short count_elements;
-};
-
-class Field_set: public Field_enum {
-
-    unsigned int pack_length() const {
-        unsigned int x = (unsigned int) ((count_elements + 7)/8);
-        x = (x > 4 ? 8 : x);
-        return x;
-    }
-
-public:
-    Field_set(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char* from);
-};
-
-class Field_decimal : public Field_longstr {
-    double dec2double(const char*);
-    int intg;
-    int frac;
-public:
-    Field_decimal(const std::string& field_name_arg, const std::string& type);
-    const char* unpack(const char *from);
-};
-
-class Field_bit : public Field
-{
-    unsigned int _pack_length;
-
-public:
-    Field_bit(const std::string& field_name_arg, const std::string& type);
-
-    const char* unpack(const char *from);
-
-    unsigned int pack_length() const {
-        return _pack_length;
-    }
+	protected:
+		bool is_old_storage;
+		const unsigned precision;
+		unsigned length;
 };
 
 
+class Field_timestamp : public Field_temporal {
+	public:
+		Field_timestamp(const std::string& name, const unsigned precision_, bool is_old_storage_)
+			: Field_temporal(name, precision_) { reset(is_old_storage_, true); }
+
+		const char* unpack(const char* from);
+		void reset(bool is_old_storage_, bool ctor_call);
+
+	private:
+		void sec_to_TIME(::MYSQL_TIME& my_time, const struct ::timeval& tv);
+};
+
+
+class Field_time : public Field_temporal {
+	public:
+		Field_time(const std::string& name, const unsigned precision_, bool is_old_storage_)
+			: Field_temporal(name, precision_) { reset(is_old_storage_, true); }
+
+		const char* unpack(const char* from);
+		void reset(bool is_old_storage_, bool ctor_call);
+};
+
+
+class Field_datetime : public Field_temporal {
+	public:
+		Field_datetime(const std::string& name, const unsigned precision_, bool is_old_storage_)
+			: Field_temporal(name, precision_) { reset(is_old_storage_, true); }
+
+		const char* unpack(const char* from);
+		void reset(bool is_old_storage_, bool ctor_call);
+};
+
+
+class Field_date : public Field {
+	using Field::Field;
+	public:
+		const char* unpack(const char* from);
+};
+
+
+class Field_year : public Field {
+	using Field::Field;
+	public:
+		const char* unpack(const char* from);
+		void unpack_str(const std::string &from);
+};
+
+// ----- string ------------------------------------------------------------------------------------
+
+class Field_string : public Field {
+	public:
+		Field_string(const std::string& name, const unsigned length_, const collate_info& collate);
+		const char* unpack(const char* from);
+
+	private:
+		const unsigned length;
+};
+
+// ----- enums -------------------------------------------------------------------------------------
+
+class Field_bitset : public Field {
+	public:
+		Field_bitset(const std::string& name, const std::string& type);
+
+	protected:
+		unsigned length;
+		std::vector<std::string> str_values;
+};
+
+class Field_enum : public Field_bitset {
+	public:
+		Field_enum(const std::string& name, const std::string& type);
+		const char* unpack(const char* from);
+};
+
+class Field_set: public Field_bitset {
+	public:
+		Field_set(const std::string& name, const std::string& type);
+		const char* unpack(const char* from);
+};
+
+
+class Field_bit : public Field {
+	public:
+		Field_bit(const std::string& name, const unsigned length_) : Field(name), length(length_) {}
+		const char* unpack(const char *from);
+		void unpack_str(const std::string &from);
+
+	private:
+		const unsigned length;
+};
+
+// ----- blob --------------------------------------------------------------------------------------
+
+class Field_blob : public Field {
+	public:
+		Field_blob(const std::string& name, const unsigned length);
+		const char* unpack(const char* from);
+
+	private:
+		unsigned type;
+};
+// -------------------------------------------------------------------------------------------------
 }
-
-#endif
+#endif // __SLAVE_FIELD_H_

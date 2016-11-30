@@ -143,9 +143,13 @@ void Slave::createTable(RelayLogInfo& rli,
 {
     LOG_TRACE(log, "enter: createTable " << db_name << " " << tbl_name);
 
-    nanomysql::Connection::result_t res;
+    conn.select_db(db_name);
 
-    conn.query("SHOW FULL COLUMNS FROM " + tbl_name + " IN " + db_name);
+    nanomysql::fields_t fields;
+    conn.get_fields(tbl_name, fields);
+
+    nanomysql::Connection::result_t res;
+    conn.query("SHOW FULL COLUMNS FROM " + tbl_name);
     conn.store(res);
 
     std::shared_ptr<Table> table(new Table(db_name, tbl_name));
@@ -172,36 +176,21 @@ void Slave::createTable(RelayLogInfo& rli,
         if (z == i->end())
             throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Type'");
 
-        std::string type = z->second.data;
+        std::string stype = z->second.data;
 
         z = i->find("Null");
 
         if (z == i->end())
             throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Null'");
 
-        std::string extract_field;
-
-        // Extract field type
-        for (size_t tmpi = 0; tmpi < type.size(); ++tmpi) {
-
-            if (!((type[tmpi] >= 'a' && type[tmpi] <= 'z') ||
-                  (type[tmpi] >= 'A' && type[tmpi] <= 'Z'))) {
-
-                extract_field = type.substr(0, tmpi);
-                break;
-            }
-
-            if (tmpi == type.size()-1) {
-                extract_field = type;
-                break;
-            }
+        const auto fi = fields.find(name);
+        if (fi == fields.end()) {
+            throw std::runtime_error("Slave::create_table(): no field record for '" + name + "'");
         }
 
-        if (extract_field.empty())
-            throw std::runtime_error("Slave::create_table(): Regexp error, type not found");
-
+        const auto& field = fi->second;
         collate_info ci;
-        if ("varchar" == extract_field || "char" == extract_field)
+        if (field.type == MYSQL_TYPE_VARCHAR || field.type == MYSQL_TYPE_VAR_STRING || field.type == MYSQL_TYPE_STRING)
         {
             z = i->find("Collation");
             if (z == i->end())
@@ -210,101 +199,94 @@ void Slave::createTable(RelayLogInfo& rli,
             collate_map_t::const_iterator it = collate_map.find(collate);
             if (collate_map.end() == it)
                 throw std::runtime_error("Slave::create_table(): cannot find collate '" + collate + "' from field "
-                                         + name + " type " + type + " in collate info map");
+                                         + name + " type " + stype + " in collate info map");
             ci = it->second;
-            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << type
-                      << " Field type: " << extract_field << " Collation: " << ci.name);
+            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << stype
+                      << " Field type: " << field.type << " Length: " << field.length << " Collation: " << ci.name);
         }
         else
-            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << type
-                      << " Field type: " << extract_field );
+            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << stype
+                      << " Field type: " << field.type << " Length: " << field.length );
 
-        PtrField field;
+        PtrField pfield;
 
-        if (extract_field == "int")
-            field = PtrField(new Field_long(name, type));
-
-        else if (extract_field == "double")
-            field = PtrField(new Field_double(name, type));
-
-        else if (extract_field == "float")
-            field = PtrField(new Field_float(name, type));
-
-        else if (extract_field == "timestamp")
-            field = PtrField(new Field_timestamp(name, type, m_master_info.is_old_storage));
-
-        else if (extract_field == "datetime")
-            field = PtrField(new Field_datetime(name, type, m_master_info.is_old_storage));
-
-        else if (extract_field == "date")
-            field = PtrField(new Field_date(name, type));
-
-        else if (extract_field == "year")
-            field = PtrField(new Field_year(name, type));
-
-        else if (extract_field == "time")
-            field = PtrField(new Field_time(name, type, m_master_info.is_old_storage));
-
-        else if (extract_field == "enum")
-            field = PtrField(new Field_enum(name, type));
-
-        else if (extract_field == "set")
-            field = PtrField(new Field_set(name, type));
-
-        else if (extract_field == "varchar")
-            field = PtrField(new Field_varstring(name, type, ci));
-
-        else if (extract_field == "char")
-            field = PtrField(new Field_varstring(name, type, ci));
-
-        else if (extract_field == "tinyint")
-            field = PtrField(new Field_tiny(name, type));
-
-        else if (extract_field == "smallint")
-            field = PtrField(new Field_short(name, type));
-
-        else if (extract_field == "mediumint")
-            field = PtrField(new Field_medium(name, type));
-
-        else if (extract_field == "bigint")
-            field = PtrField(new Field_longlong(name, type));
-
-        else if (extract_field == "text")
-            field = PtrField(new Field_blob(name, type));
-
-        else if (extract_field == "tinytext")
-            field = PtrField(new Field_tinyblob(name, type));
-
-        else if (extract_field == "mediumtext")
-            field = PtrField(new Field_mediumblob(name, type));
-
-        else if (extract_field == "longtext")
-            field = PtrField(new Field_longblob(name, type));
-
-        else if (extract_field == "blob")
-            field = PtrField(new Field_blob(name, type));
-
-        else if (extract_field == "tinyblob")
-            field = PtrField(new Field_tinyblob(name, type));
-
-        else if (extract_field == "mediumblob")
-            field = PtrField(new Field_mediumblob(name, type));
-
-        else if (extract_field == "longblob")
-            field = PtrField(new Field_longblob(name, type));
-
-        else if (extract_field == "decimal")
-            field = PtrField(new Field_decimal(name, type));
-
-        else if (extract_field == "bit")
-            field = PtrField(new Field_bit(name, type));
-
-        else {
-            LOG_ERROR(log, "createTable: class name don't exist: " << extract_field );
-            throw std::runtime_error("class name does not exist: " + extract_field);
+        switch (field.type) {
+         // case MYSQL_TYPE_DECIMAL:
+         // case MYSQL_TYPE_NEWDECIMAL:
+         //     pfield = PtrField(new Field_decimal(name, field.length, field.decimals));
+         //     break;
+            case MYSQL_TYPE_TINY:
+                pfield = field.flags & UNSIGNED_FLAG ? PtrField(new Field_num<uint16, 1>(name)) : PtrField(new Field_num<int16, 1>(name));
+                break;
+            case MYSQL_TYPE_SHORT:
+                pfield = field.flags & UNSIGNED_FLAG ? PtrField(new Field_num<uint16>(name)) : PtrField(new Field_num<int16>(name));
+                break;
+            case MYSQL_TYPE_INT24:
+                pfield = field.flags & UNSIGNED_FLAG ? PtrField(new Field_num<uint32, 3>(name)) : PtrField(new Field_num<int32, 3>(name));
+                break;
+            case MYSQL_TYPE_LONG:
+                pfield = field.flags & UNSIGNED_FLAG ? PtrField(new Field_num<uint32>(name)) : PtrField(new Field_num<int32>(name));
+                break;
+            case MYSQL_TYPE_LONGLONG:
+                pfield = field.flags & UNSIGNED_FLAG ? PtrField(new Field_num<ulonglong>(name)) : PtrField(new Field_num<longlong>(name));
+                break;
+            case MYSQL_TYPE_FLOAT:
+                pfield = PtrField(new Field_num<float>(name));
+                break;
+            case MYSQL_TYPE_DOUBLE:
+                pfield = PtrField(new Field_num<double>(name));
+                break;
+            case MYSQL_TYPE_TIMESTAMP:
+            case MYSQL_TYPE_TIMESTAMP2:
+                pfield = PtrField(new Field_timestamp(name, field.decimals, m_master_info.is_old_storage));
+                break;
+            case MYSQL_TYPE_TIME:
+            case MYSQL_TYPE_TIME2:
+                pfield = PtrField(new Field_time(name, field.decimals, m_master_info.is_old_storage));
+                break;
+            case MYSQL_TYPE_DATETIME:
+            case MYSQL_TYPE_DATETIME2:
+                pfield = PtrField(new Field_datetime(name, field.decimals, m_master_info.is_old_storage));
+                break;
+            case MYSQL_TYPE_DATE:
+            case MYSQL_TYPE_NEWDATE:
+                pfield = PtrField(new Field_date(name));
+                break;
+            case MYSQL_TYPE_YEAR:
+                pfield = PtrField(new Field_year(name));
+                break;
+            case MYSQL_TYPE_VARCHAR:
+            case MYSQL_TYPE_VAR_STRING:
+                pfield = PtrField(new Field_string(name, field.length, ci));
+                break;
+         // case MYSQL_TYPE_ENUM:
+         // case MYSQL_TYPE_SET:
+            case MYSQL_TYPE_STRING:
+                if (field.flags & ENUM_FLAG) {
+                    pfield = PtrField(new Field_enum(name, stype));
+                    break;
+                } else if (field.flags & SET_FLAG) {
+                    pfield = PtrField(new Field_set(name, stype));
+                    break;
+                } else {
+                    LOG_ERROR(log, "Slave::create_table(): class name don't exist for type: " << field.type << " flags: " << field.flags);
+                    throw std::runtime_error("Slave::create_table(): error in field '" + name + "'");
+                }
+            case MYSQL_TYPE_BIT:
+                pfield = PtrField(new Field_bit(name, field.length));
+                break;
+         // case MYSQL_TYPE_TINY_BLOB:
+         // case MYSQL_TYPE_MEDIUM_BLOB:
+         // case MYSQL_TYPE_LONG_BLOB:
+            case MYSQL_TYPE_BLOB:
+                pfield = PtrField(new Field_blob(name, field.length));
+                break;
+            default:
+                LOG_ERROR(log, "Slave::create_table(): class name don't exist for type: " << field.type );
+                throw std::runtime_error("Slave::create_table(): error in field '" + name + "'");
         }
 
-        table->fields.push_back(field);
+        table->fields.push_back(pfield);
 
     }
 
@@ -373,7 +355,7 @@ struct raii_mysql_connector
         }
 
         if(was_error)
-            LOG_INFO(log, "Successfully connected to " << sConnOptions.mysql_host << ":" << m_master_info.mysql_port);
+            LOG_INFO(log, "Successfully connected to " << m_master_info.conn_options.mysql_host << ":" << m_master_info.conn_options.mysql_port);
 
 
         mysql->reconnect = 1;
@@ -705,7 +687,7 @@ void Slave::check_master_binlog_format()
         std::map<std::string,nanomysql::field>::const_iterator z = res[0].find("Value");
 
         if (z == res[0].end())
-            throw std::runtime_error("Slave::create_table(): SHOW GLOBAL VARIABLES query did not return 'Value'");
+            throw std::runtime_error("Slave::check_binlog_format(): SHOW GLOBAL VARIABLES query did not return 'Value'");
 
         std::string tmp = z->second.data;
 
@@ -956,7 +938,7 @@ void Slave::generateSlaveId()
         std::map<std::string,nanomysql::field>::const_iterator z = i->find("Server_id");
 
         if (z == i->end())
-            throw std::runtime_error("Slave::create_table(): SHOW SLAVE HOSTS query did not return 'Server_id'");
+            throw std::runtime_error("Slave::generateSlaveId(): SHOW SLAVE HOSTS query did not return 'Server_id'");
 
         server_ids.insert(::strtoul(z->second.data.c_str(), NULL, 10));
     }
@@ -992,14 +974,14 @@ Slave::binlog_pos_t Slave::getLastBinlog() const
         std::map<std::string,nanomysql::field>::const_iterator z = res[0].find("File");
 
         if (z == res[0].end())
-            throw std::runtime_error("Slave::create_table(): " + query + " query did not return 'File'");
+            throw std::runtime_error("Slave::getLastBinlog(): " + query + " query did not return 'File'");
 
         std::string file = z->second.data;
 
         z = res[0].find("Position");
 
         if (z == res[0].end())
-            throw std::runtime_error("Slave::create_table(): " + query + " query did not return 'Position'");
+            throw std::runtime_error("Slave::getLastBinlog(): " + query + " query did not return 'Position'");
 
         std::string pos = z->second.data;
 
@@ -1008,3 +990,4 @@ Slave::binlog_pos_t Slave::getLastBinlog() const
 
     throw std::runtime_error("Slave::getLastBinLog(): Could not " + query);
 }
+// vim: et ts=4

@@ -10,10 +10,15 @@ namespace nanomysql
     struct field
     {
         std::string name;
-        size_t type;
+        unsigned int type;
+        unsigned long length;
+        unsigned int flags;
+        unsigned int decimals;
         std::string data;
+        bool is_null;
 
-        field(const std::string& n, size_t t) : name(n), type(t) {}
+        field(const std::string& n, unsigned int t, unsigned long l, unsigned int f, unsigned int d)
+            : name(n), type(t), length(l), flags(f), decimals(d) {}
 
         template <typename T>
         operator T() const
@@ -30,3 +35,4 @@ namespace nanomysql
 }// nanomysql
 
 #endif
+// vim: et ts=4

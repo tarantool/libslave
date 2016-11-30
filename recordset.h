@@ -22,8 +22,8 @@
 namespace slave
 {
 
-// One row in a table. Key -- field name, value - pair of (field type, value)
-typedef std::map<std::string, std::pair<std::string, boost::any> > Row;
+// One row in a table. Key -- field name, value - value
+typedef std::map<std::string, boost::any> Row;
 
 struct RecordSet
 {
