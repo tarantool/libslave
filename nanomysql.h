@@ -15,10 +15,10 @@
 #ifndef __NANOMYSQL_H
 #define __NANOMYSQL_H
 
-#include <mysql/mysql.h>
-#include "nanofield.h"
 #include <stdexcept>
 #include <vector>
+#include <mysql/mysql.h>
+#include "nanofield.h"
 
 namespace nanomysql {
 

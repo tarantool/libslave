@@ -14,11 +14,11 @@
 
 
 #include <regex>
+#include <unistd.h>
+
 #include "Slave.h"
 #include "SlaveStats.h"
-
 #include "Logging.h"
-
 #include "nanomysql.h"
 
 #include <mysql/errmsg.h>
@@ -26,8 +26,6 @@
 #include <mysql/my_global.h>
 #include <mysql/m_ctype.h>
 #include <mysql/sql_common.h>
-
-#include <unistd.h>
 
 #define packet_end_data 1
 

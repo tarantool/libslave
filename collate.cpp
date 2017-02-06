@@ -1,9 +1,9 @@
 #include <map>
-#include <mysql/mysql.h>
 #include <stdexcept>
 #include <stdio.h>
 #include <string>
 #include <vector>
+#include <mysql/mysql.h>
 #include "nanomysql.h"
 #include "collate.h"
 

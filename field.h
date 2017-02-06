@@ -19,15 +19,17 @@
 #include <boost/any.hpp>
 #include "collate.h"
 
-#include "my_time.h"
+#include <mysql/my_time.h>
 #include <mysql/m_string.h>
+#include <mysql/binary_log_funcs.h>
+/*
 extern "C" {
-#include <decimal.h>
-}
+#include <mysql/decimal.h>
+} // */
 
-#ifdef test
+#undef min
+#undef max
 #undef test
-#endif /* test */
 
 // -------------------------------------------------------------------------------------------------
 
@@ -76,7 +78,8 @@ template class Field_num<longlong>;
 template class Field_num<float>;
 template class Field_num<double>;
 
-
+/** not ready yet */
+/*
 class Field_decimal : public Field {
 	public:
 		Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_);
@@ -85,6 +88,7 @@ class Field_decimal : public Field {
 	private:
 		const unsigned scale, precision, length;
 };
+*/
 
 // ----- date & time -------------------------------------------------------------------------------
 

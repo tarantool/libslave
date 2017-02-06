@@ -15,8 +15,6 @@
 #include <cstdio>
 #include <stdexcept>
 #include <sstream>
-#undef min
-#undef max
 
 #include "field.h"
 #include "Logging.h"
@@ -88,7 +86,8 @@ template<typename T, const unsigned length> void Field_num<T, length>::unpack_st
 	}
 }
 
-
+/** not ready yet */
+/*
 Field_decimal::Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_)
 	: Field(name), scale(scale_),
 	precision(length_ - (scale_ ? 2 : 1)), // see my_decimal_length_to_precision() @ my_decimal.h
@@ -114,6 +113,7 @@ const char* Field_decimal::unpack(const char *from)
 
 	return from + length;
 }
+*/
 
 // ----- date & time -------------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ void Field_timestamp::sec_to_TIME(::MYSQL_TIME& my_time, const struct ::timeval&
 		my_time.day = tm_.tm_mday;
 		my_time.hour = tm_.tm_hour;
 		my_time.minute = tm_.tm_min;
-		my_time.second = tm_.tm_sec <= 59 ? tm_.tm_sec : 59; // see adjust_leap_second() @ tztime.cc
+		my_time.second = std::min(tm_.tm_sec, 59); // see adjust_leap_second() @ tztime.cc
 	} else {
 		::memset(&my_time, 0, sizeof(my_time));
 	}
@@ -157,12 +157,11 @@ const char* Field_timestamp::unpack(const char* from)
 	if (is_old_storage) {
 		tv.tv_sec = uint4korr(from);
 		tv.tv_usec = 0;
-		sec_to_TIME(my_time, tv);
 	} else {
 		::my_timestamp_from_binary(&tv, (const uchar*)from, precision);
-		sec_to_TIME(my_time, tv);
 	}
 
+	sec_to_TIME(my_time, tv);
 	char buffer[ MAX_DATE_STRING_REP_LENGTH ];
 	int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
 

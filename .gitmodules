@@ -1,0 +1,3 @@
+[submodule "mysql-src"]
+	path = mysql-src
+	url = https://github.com/mysql/mysql-server.git

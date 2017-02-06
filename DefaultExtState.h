@@ -2,7 +2,6 @@
 #define __SLAVE_DEFAULTEXTSTATE_H_
 
 #include <mutex>
-
 #include "SlaveStats.h"
 
 namespace slave

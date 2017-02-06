@@ -23,12 +23,10 @@
 #undef test
 
 #include <mysql/mysql.h>
-
 #include <zlib.h>
 
 #include "relayloginfo.h"
 #include "slave_log_event.h"
-
 #include "SlaveStats.h"
 #include "Logging.h"
 

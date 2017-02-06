@@ -34,6 +34,9 @@
 #include "slave_log_event.h"
 #include "SlaveStats.h"
 
+#undef min
+#undef max
+#undef test
 
 namespace slave
 {
