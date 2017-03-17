@@ -267,8 +267,8 @@ void Slave::createTable(RelayLogInfo& rli,
                     pfield = PtrField(new Field_set(name, stype));
                     break;
                 } else {
-                    LOG_ERROR(log, "Slave::create_table(): class name don't exist for type: " << field.type << " flags: " << field.flags);
-                    throw std::runtime_error("Slave::create_table(): error in field '" + name + "'");
+                    pfield = PtrField(new Field_string(name, field.length, ci));
+                    break;
                 }
             case MYSQL_TYPE_BIT:
                 pfield = PtrField(new Field_bit(name, field.length));
