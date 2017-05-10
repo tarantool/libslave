@@ -95,9 +95,10 @@ Field_decimal::Field_decimal(const std::string& name, const unsigned length_, co
 
 const char* Field_decimal::unpack(const char *from)
 {
-	::decimal_digit_t buf[ precision ];
+	// see DECIMAL_BUFF_LENGTH @ my_decimal.h
+	::decimal_digit_t buf[9];
 	::decimal_t dec;
-	dec.len = precision;
+	dec.len = 9;
 	dec.buf = buf;
 
 	if (::bin2decimal((const uchar*)from, &dec, precision, scale) != E_DEC_OK) {
