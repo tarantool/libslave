@@ -500,8 +500,7 @@ connected:
                 LOG_TRACE(log, "ROTATE_EVENT processed OK.");
             }
 
-
-            if (process_event(event, m_rli, m_master_info.master_log_pos)) {
+            else if (process_event(event, m_rli, m_master_info.master_log_pos)) {
 
                 LOG_TRACE(log, "Error in processing event.");
             }
@@ -715,21 +714,19 @@ void Slave::do_checksum_handshake(MYSQL* mysql)
 }
 
 
-
-namespace
+static std::string checkAlterOrCreateQuery(const std::string& str)
 {
-std::string checkAlterOrCreateQuery(const std::string& str)
-{
-    static const std::regex query_regex(R"(\s*(?:alter\s+table|create\s+table(?:\s+if\s+not\s+exists)?)\s+(?:\w+\.)?(\w+)(?:[^\w\.].*$|$))",
-                                        std::regex_constants::optimize | std::regex_constants::icase);
+    static const std::regex query_regex(
+        R"((?:alter\s+table|create\s+table(?:\s+if\s+not\s+exists)?)\s+(?:(?:`[^`]+`|\w+)\s*\.\s*)?(?:`([^`]+)|(\w+)))",
+        std::regex_constants::optimize | std::regex_constants::icase
+    );
     std::smatch sm;
-    if (std::regex_match(str, sm, query_regex))
-        return sm[1];
+
+    if (std::regex_search(str, sm, query_regex))
+        return sm.length(1) ? sm[1] : sm[2];
+
     return "";
 }
-}// anonymouos-namespace
-
-
 
 int Slave::process_event(const slave::Basic_event_info& bei, RelayLogInfo &m_rli, unsigned long long pos)
 {
