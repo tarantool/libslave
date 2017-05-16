@@ -121,7 +121,7 @@ void Slave::createDatabaseStructure_(table_order_t& tabs, RelayLogInfo& rli) con
     LOG_TRACE(log, "enter: createDatabaseStructure");
 
     nanomysql::Connection conn(m_master_info.conn_options);
-    const collate_map_t& collate_map = readCollateMap(conn);
+    const collate_map_t collate_map = readCollateMap(conn);
 
 
     for (table_order_t::const_iterator it = tabs.begin(); it != tabs.end(); ++ it) {
@@ -167,13 +167,19 @@ void Slave::createTable(RelayLogInfo& rli,
         if (z == i->end())
             throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Field'");
 
-        const std::string& name = z->second.data;
+        std::string name = z->second.data;
 
         z = i->find("Type");
+
         if (z == i->end())
             throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Type'");
 
-        const std::string& stype = z->second.data;
+        std::string stype = z->second.data;
+
+        z = i->find("Null");
+
+        if (z == i->end())
+            throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Null'");
 
         const auto fi = fields.find(name);
         if (fi == fields.end()) {
@@ -181,13 +187,32 @@ void Slave::createTable(RelayLogInfo& rli,
         }
 
         const auto& field = fi->second;
+        collate_info ci;
+        if (field.type == MYSQL_TYPE_VARCHAR || field.type == MYSQL_TYPE_VAR_STRING || field.type == MYSQL_TYPE_STRING)
+        {
+            z = i->find("Collation");
+            if (z == i->end())
+                throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Collation' for field '" + name + "'");
+            const std::string collate = z->second.data;
+            collate_map_t::const_iterator it = collate_map.find(collate);
+            if (collate_map.end() == it)
+                throw std::runtime_error("Slave::create_table(): cannot find collate '" + collate + "' from field "
+                                         + name + " type " + stype + " in collate info map");
+            ci = it->second;
+            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << stype
+                      << " Field type: " << field.type << " Length: " << field.length << " Collation: " << ci.name);
+        }
+        else
+            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << stype
+                      << " Field type: " << field.type << " Length: " << field.length );
+
         PtrField pfield;
 
         switch (field.type) {
          // case MYSQL_TYPE_DECIMAL:
-            case MYSQL_TYPE_NEWDECIMAL:
-                pfield = PtrField(new Field_decimal(name, field.length, field.decimals, field.flags & UNSIGNED_FLAG));
-                break;
+         // case MYSQL_TYPE_NEWDECIMAL:
+         //     pfield = PtrField(new Field_decimal(name, field.length, field.decimals));
+         //     break;
             case MYSQL_TYPE_TINY:
                 pfield = field.flags & UNSIGNED_FLAG ? PtrField(new Field_num<uint16, 1>(name)) : PtrField(new Field_num<int16, 1>(name));
                 break;
@@ -230,7 +255,7 @@ void Slave::createTable(RelayLogInfo& rli,
                 break;
             case MYSQL_TYPE_VARCHAR:
             case MYSQL_TYPE_VAR_STRING:
-                pfield = PtrField(new Field_string(name, field.length, collate_map.at(field.charsetnr)));
+                pfield = PtrField(new Field_string(name, field.length, ci));
                 break;
          // case MYSQL_TYPE_ENUM:
          // case MYSQL_TYPE_SET:
@@ -242,7 +267,7 @@ void Slave::createTable(RelayLogInfo& rli,
                     pfield = PtrField(new Field_set(name, stype));
                     break;
                 } else {
-                    pfield = PtrField(new Field_string(name, field.length, collate_map.at(field.charsetnr)));
+                    pfield = PtrField(new Field_string(name, field.length, ci));
                     break;
                 }
             case MYSQL_TYPE_BIT:

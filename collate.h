@@ -1,32 +1,28 @@
 #ifndef __SLAVE_COLLATE_H
 #define __SLAVE_COLLATE_H
 
-#include <unordered_map>
+#include <map>
 #include <string>
-#include "nanomysql.h"
+
+namespace nanomysql
+{
+    class Connection;
+}
 
 namespace slave
 {
-	struct collate_info
-	{
-		const std::string name;
-		const std::string charset;
-		const unsigned maxlen;
+    struct collate_info
+    {
+        std::string name;
+        std::string charset;
+        int maxlen;
 
-		collate_info(
-			const std::string& name_,
-			const std::string& charset_,
-			const unsigned maxlen_
-		) :
-			name(name_),
-			charset(charset_),
-			maxlen(maxlen_)
-		{}
-	};
+        collate_info() : maxlen(0) {}
+    };
 
-	typedef std::unordered_map<unsigned, collate_info> collate_map_t;
+    typedef std::map<std::string, collate_info> collate_map_t;
 
-	collate_map_t readCollateMap(nanomysql::Connection& conn);
+    collate_map_t readCollateMap(nanomysql::Connection& conn);
 }// slave
 
 #endif

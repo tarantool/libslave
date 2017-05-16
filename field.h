@@ -22,10 +22,10 @@
 #include <mysql/my_time.h>
 #include <mysql/m_string.h>
 #include <mysql/binary_log_funcs.h>
-
+/*
 extern "C" {
 #include <mysql/decimal.h>
-}
+} // */
 
 #undef min
 #undef max
@@ -78,16 +78,17 @@ template class Field_num<longlong>;
 template class Field_num<float>;
 template class Field_num<double>;
 
-
+/** not ready yet */
+/*
 class Field_decimal : public Field {
 	public:
-		Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_, const bool is_unsigned);
+		Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_);
 		const char* unpack(const char *from);
 
 	private:
 		const unsigned scale, precision, length;
-		static const bool zerofill = false;
 };
+*/
 
 // ----- date & time -------------------------------------------------------------------------------
 

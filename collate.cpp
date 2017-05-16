@@ -1,44 +1,68 @@
+#include <map>
+#include <stdexcept>
+#include <stdio.h>
 #include <string>
+#include <vector>
 #include <mysql/mysql.h>
+#include "nanomysql.h"
 #include "collate.h"
 
 using namespace slave;
 
 collate_map_t slave::readCollateMap(nanomysql::Connection& conn)
 {
-	collate_map_t res;
-	nanomysql::Connection::result_t nanores;
-	std::unordered_map<std::string, unsigned> charsets;
+    collate_map_t res;
+    nanomysql::Connection::result_t nanores;
 
-	conn.query("SHOW CHARACTER SET");
-	conn.store(nanores);
+    typedef std::map<std::string, int> charset_maxlen_t;
+    charset_maxlen_t cm;
 
-	for (const auto& row : nanores)
-	{
-		const std::string& name = row.at("Charset").data;
-		const unsigned maxlen = atoi(row.at("Maxlen").data.c_str());
+    conn.query("SHOW CHARACTER SET");
+    conn.store(nanores);
 
-		charsets.emplace(name, maxlen);
-	}
+    for (nanomysql::Connection::result_t::const_iterator i = nanores.begin(); i != nanores.end(); ++i)
+    {
+        std::map<std::string, nanomysql::field>::const_iterator z = i->find("Charset");
+        if (z == i->end())
+            throw std::runtime_error("Slave::readCollateMap(): SHOW CHARACTER SET query did not return 'Charset'");
+        const std::string name = z->second.data;
 
-	nanores.clear();
-	conn.query("SHOW COLLATION");
-	conn.store(nanores);
+        z = i->find("Maxlen");
+        if (z == i->end())
+            throw std::runtime_error("Slave::readCollateMap(): SHOW CHARACTER SET query did not return 'Maxlen'");
 
-	for (const auto& row : nanores)
-	{
-		const unsigned charsetnr = atoi(row.at("Id").data.c_str());
-		const std::string& name = row.at("Collation").data;
-		const std::string& charset = row.at("Charset").data;
+        const int maxlen = atoi(z->second.data.c_str());
 
-		const unsigned maxlen = charsets.at(charset);
+        cm[name] = maxlen;
+    }
 
-		res.emplace(
-			std::piecewise_construct,
-			std::forward_as_tuple(charsetnr),
-			std::forward_as_tuple(name, charset, maxlen)
-		);
-	}
+    nanores.clear();
+    conn.query("SHOW COLLATION");
+    conn.store(nanores);
 
-	return res;
+    for (nanomysql::Connection::result_t::const_iterator i = nanores.begin(); i != nanores.end(); ++i)
+    {
+        collate_info ci;
+
+        std::map<std::string, nanomysql::field>::const_iterator z = i->find("Collation");
+        if (z == i->end())
+            throw std::runtime_error("Slave::readCollateMap(): SHOW COLLATION query did not return 'Collation'");
+        ci.name = z->second.data;
+
+        z = i->find("Charset");
+        if (z == i->end())
+            throw std::runtime_error("Slave::readCollateMap(): SHOW COLLATION query did not return 'Charset'");
+        ci.charset = z->second.data;
+
+        charset_maxlen_t::const_iterator j = cm.find(ci.charset);
+        if (j == cm.end())
+            throw std::runtime_error("Slave::readCollateMap(): SHOW COLLATION returns charset not shown in SHOW CHARACTER SET"
+                    " (collation '" + ci.name + "', charset '" + ci.charset + "')");
+
+        ci.maxlen = j->second;
+
+        res[ci.name] = ci;
+    }
+
+    return res;
 }

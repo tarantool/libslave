@@ -86,20 +86,16 @@ template<typename T, const unsigned length> void Field_num<T, length>::unpack_st
 	}
 }
 
-
-Field_decimal::Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_, const bool is_unsigned)
+/** not ready yet */
+/*
+Field_decimal::Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_)
 	: Field(name), scale(scale_),
-	// see my_decimal_length_to_precision() @ my_decimal.h
-	precision(length_ - (scale_ ? 1 : 0) - (is_unsigned || !length_ ? 0 : 1)),
+	precision(length_ - (scale_ ? 2 : 1)), // see my_decimal_length_to_precision() @ my_decimal.h
 	length(::decimal_bin_size(precision, scale_)) {}
 
 const char* Field_decimal::unpack(const char *from)
 {
-	// see DECIMAL_BUFF_LENGTH @ my_decimal.h
-	::decimal_digit_t buf[9];
-	::decimal_t dec;
-	dec.len = 9;
-	dec.buf = buf;
+	decimal_t dec;
 
 	if (::bin2decimal((const uchar*)from, &dec, precision, scale) != E_DEC_OK) {
 		throw std::runtime_error("Field_decimal::unpack(): bin2decimal() failed");
@@ -108,7 +104,7 @@ const char* Field_decimal::unpack(const char *from)
 	int value_length = decimal_string_size(&dec);
 	char buffer[ value_length ];
 
-	if (::decimal2string(&dec, (char*)&buffer, &value_length, zerofill ? precision : 0, scale, '0') != E_DEC_OK) {
+	if (::decimal2string(&dec, (char*)&buffer, &value_length, precision, scale, '0') != E_DEC_OK) {
 		throw std::runtime_error("Field_decimal::unpack(): decimal2string() failed");
 	}
 
@@ -117,6 +113,7 @@ const char* Field_decimal::unpack(const char *from)
 
 	return from + length;
 }
+*/
 
 // ----- date & time -------------------------------------------------------------------------------
 
