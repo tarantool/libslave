@@ -33,6 +33,7 @@
 
 #include "slave_log_event.h"
 #include "SlaveStats.h"
+#include "collate.h"
 
 #undef min
 #undef max

@@ -122,7 +122,8 @@ enum Temporal_type
 #define TM_MAPID_OFFSET    0
 
 #define ROWS_HEADER_LEN_V1     8
-#define RW_MAPID_OFFSET    0
+#define ROWS_MAPID_OFFSET      0
+#define ROWS_FLAGS_OFFSET      6
 #define ROWS_HEADER_LEN        10
 
 #define LOG_EVENT_MINIMAL_HEADER_LEN 19
@@ -198,7 +199,7 @@ struct Row_event_info {
 
     bool has_after_image;
 
-    Row_event_info(const char* buf, unsigned int event_len, bool do_update, bool master_ge_56);
+    Row_event_info(const char* buf, const unsigned int event_len, const bool is_update, const bool is_v2_event);
 };
 
 

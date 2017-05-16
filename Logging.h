@@ -1,4 +1,3 @@
-
 /* Copyright 2011 ZAO "Begun".
  *
  * This library is free software; you can redistribute it and/or modify it under
@@ -11,17 +10,17 @@
  * details.
  * You should have received a copy of the GNU Lesser General Public License
  * along with this library.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef __SLAVE_LOGGING_H
 #define __SLAVE_LOGGING_H
 
 #include <iostream>
 
-#define LOG_TRACE(LOG, S) //std::cout << S << std::endl;
-#define LOG_DEBUG(LOG, S) //std::cout << S << std::endl;
-#define LOG_INFO(LOG, S) //std::cout << S << std::endl;
-#define LOG_WARNING(LOG, S) std::cerr << S << std::endl;
-#define LOG_ERROR(LOG, S) std::cerr << S << std::endl;
+#define LOG_TRACE(LOG, S)    //std::cout << S << std::endl;
+#define LOG_DEBUG(LOG, S)    //std::cout << S << std::endl;
+#define LOG_INFO(LOG, S)     //std::cout << S << std::endl;
+#define LOG_WARNING(LOG, S)    std::cerr << S << std::endl;
+#define LOG_ERROR(LOG, S)      std::cerr << S << std::endl;
 
 #endif

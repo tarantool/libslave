@@ -17,15 +17,14 @@
 
 #include <string>
 #include <boost/any.hpp>
-#include "collate.h"
 
 #include <mysql/my_time.h>
 #include <mysql/m_string.h>
 #include <mysql/binary_log_funcs.h>
-/*
+
 extern "C" {
 #include <mysql/decimal.h>
-} // */
+}
 
 #undef min
 #undef max
@@ -78,17 +77,22 @@ template class Field_num<longlong>;
 template class Field_num<float>;
 template class Field_num<double>;
 
-/** not ready yet */
-/*
+
 class Field_decimal : public Field {
 	public:
-		Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_);
+		Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_, const bool is_unsigned)
+			: Field(name), scale(scale_),
+			// see my_decimal_length_to_precision() @ my_decimal.h
+			precision(length_ - (scale_ ? 1 : 0) - (is_unsigned || !length_ ? 0 : 1)),
+			length(::decimal_bin_size(precision, scale_))
+		{}
+
 		const char* unpack(const char *from);
 
 	private:
 		const unsigned scale, precision, length;
+		static const bool zerofill = false;
 };
-*/
 
 // ----- date & time -------------------------------------------------------------------------------
 
@@ -98,7 +102,7 @@ class Field_temporal : public Field {
 			: Field(name), precision(precision_) {}
 
 		// set length
-		virtual void reset(bool is_old_storage_, bool ctor_call = false) = 0;
+		virtual void reset(const bool is_old_storage_, const bool ctor_call = false) = 0;
 
 	protected:
 		bool is_old_storage;
@@ -109,34 +113,31 @@ class Field_temporal : public Field {
 
 class Field_timestamp : public Field_temporal {
 	public:
-		Field_timestamp(const std::string& name, const unsigned precision_, bool is_old_storage_)
+		Field_timestamp(const std::string& name, const unsigned precision_, const bool is_old_storage_)
 			: Field_temporal(name, precision_) { reset(is_old_storage_, true); }
 
 		const char* unpack(const char* from);
-		void reset(bool is_old_storage_, bool ctor_call);
-
-	private:
-		void sec_to_TIME(::MYSQL_TIME& my_time, const struct ::timeval& tv);
+		void reset(const bool is_old_storage_, const bool ctor_call);
 };
 
 
 class Field_time : public Field_temporal {
 	public:
-		Field_time(const std::string& name, const unsigned precision_, bool is_old_storage_)
+		Field_time(const std::string& name, const unsigned precision_, const bool is_old_storage_)
 			: Field_temporal(name, precision_) { reset(is_old_storage_, true); }
 
 		const char* unpack(const char* from);
-		void reset(bool is_old_storage_, bool ctor_call);
+		void reset(const bool is_old_storage_, const bool ctor_call);
 };
 
 
 class Field_datetime : public Field_temporal {
 	public:
-		Field_datetime(const std::string& name, const unsigned precision_, bool is_old_storage_)
+		Field_datetime(const std::string& name, const unsigned precision_, const bool is_old_storage_)
 			: Field_temporal(name, precision_) { reset(is_old_storage_, true); }
 
 		const char* unpack(const char* from);
-		void reset(bool is_old_storage_, bool ctor_call);
+		void reset(const bool is_old_storage_, const bool ctor_call);
 };
 
 
@@ -158,7 +159,9 @@ class Field_year : public Field {
 
 class Field_string : public Field {
 	public:
-		Field_string(const std::string& name, const unsigned length_, const collate_info& collate);
+		Field_string(const std::string& name, const unsigned length_, const unsigned maxlen)
+			: Field(name), length(length_ * maxlen) {}
+
 		const char* unpack(const char* from);
 
 	private:

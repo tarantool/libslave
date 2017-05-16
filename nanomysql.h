@@ -17,7 +17,6 @@
 
 #include <stdexcept>
 #include <vector>
-#include <mysql/mysql.h>
 #include "nanofield.h"
 
 namespace nanomysql {
@@ -145,7 +144,7 @@ public:
 
         ::MYSQL_FIELD* ff = ::mysql_fetch_fields(re.s);
         for (unsigned cnt = ::mysql_field_count(m_conn); cnt; --cnt, ++ff) {
-            fields.insert(std::make_pair(ff->name, field(ff->name, ff->type, ff->length, ff->flags, ff->decimals)));
+            fields.emplace(field_name(ff), field::from_mysql_field(ff));
         }
     }
 
@@ -169,15 +168,11 @@ public:
         fields_t fields;
         std::vector<fields_t::iterator> fields_n;
 
-        while (1) {
-            MYSQL_FIELD* ff = ::mysql_fetch_field(re.s);
-
-            if (!ff) break;
-
+        ::MYSQL_FIELD* ff;
+        while (ff = ::mysql_fetch_field(re.s)) {
             fields_n.push_back(
-                fields.insert(fields.end(),
-                              std::make_pair(ff->name,
-                                             field(ff->name, ff->type, ff->length, ff->flags, ff->decimals))));
+                fields.emplace_hint(fields.cend(), field_name(ff), field::from_mysql_field(ff))
+            );
         }
 
         while (1) {
@@ -205,7 +200,7 @@ public:
     typedef std::vector<fields_t> result_t;
 
     void store(result_t& out) {
-        use( [&out] (const std::map<std::string,field>& f) { out.push_back(f); } );
+        use([&] (const fields_t& row) { out.push_back(row); });
     }
 };
 

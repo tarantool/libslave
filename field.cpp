@@ -86,16 +86,14 @@ template<typename T, const unsigned length> void Field_num<T, length>::unpack_st
 	}
 }
 
-/** not ready yet */
-/*
-Field_decimal::Field_decimal(const std::string& name, const unsigned length_, const unsigned scale_)
-	: Field(name), scale(scale_),
-	precision(length_ - (scale_ ? 2 : 1)), // see my_decimal_length_to_precision() @ my_decimal.h
-	length(::decimal_bin_size(precision, scale_)) {}
 
 const char* Field_decimal::unpack(const char *from)
 {
-	decimal_t dec;
+	// see DECIMAL_BUFF_LENGTH @ my_decimal.h
+	::decimal_digit_t buf[ 9 ];
+	::decimal_t dec;
+	dec.len = 9;
+	dec.buf = buf;
 
 	if (::bin2decimal((const uchar*)from, &dec, precision, scale) != E_DEC_OK) {
 		throw std::runtime_error("Field_decimal::unpack(): bin2decimal() failed");
@@ -104,20 +102,21 @@ const char* Field_decimal::unpack(const char *from)
 	int value_length = decimal_string_size(&dec);
 	char buffer[ value_length ];
 
-	if (::decimal2string(&dec, (char*)&buffer, &value_length, precision, scale, '0') != E_DEC_OK) {
+	if (::decimal2string(&dec, (char*)&buffer, &value_length, zerofill ? precision : 0, scale, '0') != E_DEC_OK) {
 		throw std::runtime_error("Field_decimal::unpack(): decimal2string() failed");
 	}
 
 	std::string value((char*)buffer, value_length);
-	field_data = std::move(value);
 
+	LOG_TRACE(log, "  decimal: '" << value << "' // " << length);
+
+	field_data = std::move(value);
 	return from + length;
 }
-*/
 
 // ----- date & time -------------------------------------------------------------------------------
 
-void Field_timestamp::reset(bool is_old_storage_, bool ctor_call)
+void Field_timestamp::reset(const bool is_old_storage_, const bool ctor_call)
 {
 	if (!ctor_call && is_old_storage == is_old_storage_) {
 		return;
@@ -128,9 +127,18 @@ void Field_timestamp::reset(bool is_old_storage_, bool ctor_call)
 		length = ::my_timestamp_binary_length(precision);
 	}
 }
-void Field_timestamp::sec_to_TIME(::MYSQL_TIME& my_time, const struct ::timeval& tv)
+const char* Field_timestamp::unpack(const char* from)
 {
-	if (tv.tv_sec) {
+	::MYSQL_TIME my_time;
+	struct ::timeval tv;
+
+	if (is_old_storage) {
+		tv.tv_sec = uint4korr(from);
+		tv.tv_usec = 0;
+	} else {
+		::my_timestamp_from_binary(&tv, (const uchar*)from, precision);
+	}
+	if (tv.tv_sec || tv.tv_usec) {
 		// see localtime_to_TIME() @ sql_time.cc
 		struct ::tm tm_;
 		time_t ts = tv.tv_sec;
@@ -148,22 +156,9 @@ void Field_timestamp::sec_to_TIME(::MYSQL_TIME& my_time, const struct ::timeval&
 		::memset(&my_time, 0, sizeof(my_time));
 	}
 	my_time.time_type = MYSQL_TIMESTAMP_DATETIME;
-}
-const char* Field_timestamp::unpack(const char* from)
-{
-	::MYSQL_TIME my_time;
-	struct ::timeval tv;
 
-	if (is_old_storage) {
-		tv.tv_sec = uint4korr(from);
-		tv.tv_usec = 0;
-	} else {
-		::my_timestamp_from_binary(&tv, (const uchar*)from, precision);
-	}
-
-	sec_to_TIME(my_time, tv);
 	char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-	int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
+	const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
 
 	std::string value((char*)&buffer, value_length);
 
@@ -174,7 +169,7 @@ const char* Field_timestamp::unpack(const char* from)
 }
 
 
-void Field_time::reset(bool is_old_storage_, bool ctor_call)
+void Field_time::reset(const bool is_old_storage_, const bool ctor_call)
 {
 	if (!ctor_call && is_old_storage == is_old_storage_) {
 		return;
@@ -187,17 +182,6 @@ void Field_time::reset(bool is_old_storage_, bool ctor_call)
 }
 const char* Field_time::unpack(const char* from)
 {
-	// !! we ignore fractional part
-	// 3 bytes + fractional-seconds storage, big endian
-	// ---------------------
-	//  1 bit sign    (1= non-negative, 0= negative)
-	//  1 bit unused  (reserved for future extensions)
-	// 10 bits hour   (0-838)
-	//  6 bits minute (0-59)
-	//  6 bits second (0-59)
-	// ---------------------
-	// 24 bits = 3 bytes
-
 	::MYSQL_TIME my_time = {0};
 
 	if (is_old_storage) {
@@ -212,7 +196,7 @@ const char* Field_time::unpack(const char* from)
 	}
 
 	char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-	int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
+	const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
 
 	std::string value((char*)&buffer, value_length);
 
@@ -223,7 +207,7 @@ const char* Field_time::unpack(const char* from)
 }
 
 
-void Field_datetime::reset(bool is_old_storage_, bool ctor_call)
+void Field_datetime::reset(const bool is_old_storage_, const bool ctor_call)
 {
 	if (!ctor_call && is_old_storage == is_old_storage_) {
 		return;
@@ -236,18 +220,6 @@ void Field_datetime::reset(bool is_old_storage_, bool ctor_call)
 }
 const char* Field_datetime::unpack(const char* from)
 {
-	// !! we ignore fractional part
-	// 5 bytes + fractional-seconds storage, big endian
-	// ---------------------------
-	//  1 bit  sign           (1= non-negative, 0= negative)
-	// 17 bits year*13+month  (year 0-9999, month 0-12)
-	//  5 bits day            (0-31)
-	//  5 bits hour           (0-23)
-	//  6 bits minute         (0-59)
-	//  6 bits second         (0-59)
-	// ---------------------------
-	// 40 bits = 5 bytes
-
 	::MYSQL_TIME my_time = {0};
 
 	if (is_old_storage) {
@@ -262,7 +234,7 @@ const char* Field_datetime::unpack(const char* from)
 	}
 
 	char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-	int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
+	const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
 
 	std::string value((char*)&buffer, value_length);
 
@@ -285,7 +257,7 @@ const char* Field_date::unpack(const char* from)
 	my_time.time_type = MYSQL_TIMESTAMP_DATE;
 
 	char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-	int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, 0);
+	const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, 0);
 
 	std::string value((char*)&buffer, value_length);
 
@@ -318,16 +290,13 @@ void Field_year::unpack_str(const std::string &from)
 
 // ----- string ------------------------------------------------------------------------------------
 
-Field_string::Field_string(const std::string& name, const unsigned length_, const collate_info& collate)
-	: Field(name), length(length_ * collate.maxlen) {}
-
 const char* Field_string::unpack(const char* from)
 {
 	size_t value_length;
 	// see calc_pack_length() @ field.cc
 	if (length < 256) {
 		value_length = *(const uchar*)from;
-		from ++;
+		from++;
 	} else {
 		value_length = uint2korr(from);
 		from += 2;
@@ -368,7 +337,6 @@ Field_bitset::Field_bitset(const std::string& name, const std::string& type) : F
 	}
 }
 
-
 Field_enum::Field_enum(const std::string& name, const std::string& type) : Field_bitset(name, type)
 {
 	// see get_enum_pack_length() @ field.h
@@ -403,7 +371,8 @@ const char* Field_set::unpack(const char* from)
 		case 2: nr = uint2korr(from); break;
 		case 3: nr = uint3korr(from); break;
 		case 4: nr = uint4korr(from); break;
-		case 8: nr = uint8korr(from); break;
+		default:
+		case 8: nr = uint8korr(from);
 	}
 
 	std::string value;
@@ -470,7 +439,8 @@ const char* Field_blob::unpack(const char* from)
 		case 1: value_length = *(const uchar*)from++; break;
 		case 2: value_length = uint2korr(from); from += 2; break;
 		case 3: value_length = uint3korr(from); from += 3; break;
-		case 4: value_length = uint4korr(from); from += 4; break;
+		default:
+		case 4: value_length = uint4korr(from); from += 4;
 	}
 
 	std::string value(from, value_length);
