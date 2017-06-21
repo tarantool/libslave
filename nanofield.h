@@ -4,14 +4,9 @@
 #include <map>
 #include <string>
 #include <sstream>
-#include <mysql/mysql.h>
 
 namespace nanomysql
 {
-    inline static std::string field_name(const ::MYSQL_FIELD* ff) {
-        return std::string(ff->name, ff->name_length);
-    }
-
     struct field
     {
         const std::string name;
@@ -33,16 +28,6 @@ namespace nanomysql
             s.str(data);
             s >> ret;
             return ret;
-        }
-
-        inline static field from_mysql_field(const ::MYSQL_FIELD* ff) {
-            return field(
-                field_name(ff),
-                ff->type,
-                ff->length,
-                ff->flags,
-                ff->decimals
-            );
         }
     };
 

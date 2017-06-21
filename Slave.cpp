@@ -14,7 +14,6 @@
 
 
 #include <regex>
-#include <algorithm>
 #include <unistd.h>
 
 #include "Slave.h"
@@ -151,7 +150,7 @@ void Slave::createTable(RelayLogInfo& rli,
     conn.query("SHOW FULL COLUMNS FROM " + tbl_name);
     conn.store(res);
 
-    std::shared_ptr<Table> table(new Table(db_name, tbl_name));
+    PtrTable table(new Table(db_name, tbl_name));
 
 
     LOG_DEBUG(log, "Created new Table object: database:" << db_name << " table: " << tbl_name );
@@ -483,7 +482,7 @@ connected:
                 LOG_TRACE(log, "ROTATE_EVENT processed OK.");
             }
 
-            else if (process_event(event, m_rli, m_master_info.master_log_pos)) {
+            else if (process_event(event, m_master_info.master_log_pos)) {
 
                 LOG_TRACE(log, "Error in processing event.");
             }
@@ -711,7 +710,7 @@ static std::string checkAlterOrCreateQuery(const std::string& str)
     return "";
 }
 
-int Slave::process_event(const slave::Basic_event_info& bei, RelayLogInfo &m_rli, unsigned long long pos)
+int Slave::process_event(const slave::Basic_event_info& bei, unsigned long long pos)
 {
 
 

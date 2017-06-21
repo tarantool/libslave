@@ -157,7 +157,7 @@ protected:
 
     void check_master_binlog_format();
 
-    int process_event(const slave::Basic_event_info& bei, RelayLogInfo &rli, unsigned long long pos);
+    int process_event(const slave::Basic_event_info& bei, unsigned long long pos);
 
     void request_dump(const std::string& logname, unsigned long start_position, MYSQL* mysql);
 

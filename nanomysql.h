@@ -17,6 +17,7 @@
 
 #include <stdexcept>
 #include <vector>
+#include <mysql/mysql.h>
 #include "nanofield.h"
 
 namespace nanomysql {
@@ -87,6 +88,20 @@ class Connection {
         }
     }
 
+    static inline fields_t::iterator push_field(fields_t& field, const ::MYSQL_FIELD* ff) {
+        return field.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(ff->name, ff->name_length),
+            std::forward_as_tuple(
+                std::string(ff->name, ff->name_length),
+                ff->type,
+                ff->length,
+                ff->flags,
+                ff->decimals
+            )
+        ).first;
+    }
+
 public:
     static void setOptions(MYSQL* connection, const mysql_conn_opts& opts)
     {
@@ -144,7 +159,7 @@ public:
 
         ::MYSQL_FIELD* ff = ::mysql_fetch_fields(re.s);
         for (unsigned cnt = ::mysql_field_count(m_conn); cnt; --cnt, ++ff) {
-            fields.emplace(field_name(ff), field::from_mysql_field(ff));
+            push_field(fields, ff);
         }
     }
 
@@ -171,7 +186,7 @@ public:
         ::MYSQL_FIELD* ff;
         while (ff = ::mysql_fetch_field(re.s)) {
             fields_n.push_back(
-                fields.emplace_hint(fields.cend(), field_name(ff), field::from_mysql_field(ff))
+                push_field(fields, ff)
             );
         }
 

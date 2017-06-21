@@ -538,7 +538,7 @@ namespace // anonymous
 } // namespace anonymous
 
 
-void apply_row_event(slave::RelayLogInfo& rli, const Basic_event_info& bei, const Row_event_info& roi, ExtStateIface &ext_state, EventStatIface* event_stat) {
+void apply_row_event(const slave::RelayLogInfo& rli, const Basic_event_info& bei, const Row_event_info& roi, ExtStateIface &ext_state, EventStatIface* event_stat) {
     EventKind kind = eventKind(bei.type);
     std::pair<std::string,std::string> key = rli.getTableNameById(roi.m_table_id);
 
