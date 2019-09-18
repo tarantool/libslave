@@ -6,7 +6,7 @@
 #include <mutex>
 #include <stdexcept>
 
-#include <mysql/mysql.h>
+#include <mysql.h>
 
 namespace mysql_guard
 {

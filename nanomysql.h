@@ -15,7 +15,7 @@
 #ifndef __NANOMYSQL_H
 #define __NANOMYSQL_H
 
-#include <mysql/mysql.h>
+#include <mysql.h>
 #include "MysqlGuard.h"
 #include "nanofield.h"
 #include <stdexcept>
@@ -90,6 +90,20 @@ class Connection {
         }
     }
 
+    static inline fields_t::iterator push_field(fields_t& field, const ::MYSQL_FIELD* ff) {
+        return field.emplace(
+            std::piecewise_construct,
+            std::forward_as_tuple(ff->name, ff->name_length),
+            std::forward_as_tuple(
+                std::string(ff->name, ff->name_length),
+                ff->type,
+                ff->length,
+                ff->flags,
+                ff->decimals
+            )
+        ).first;
+    }
+
 public:
     static void setOptions(MYSQL* connection, const mysql_conn_opts& opts)
     {
@@ -132,6 +146,25 @@ public:
         ::mysql_close(m_conn);
     }
 
+    void select_db(const std::string& db_name)
+    {
+        if (::mysql_select_db(m_conn, db_name.c_str()))
+            throw_error("mysql_select_db() failed");
+    }
+
+    void get_fields(const std::string& tbl_name, fields_t& fields)
+    {
+        _mysql_res_wrap re(::mysql_list_fields(m_conn, tbl_name.c_str(), NULL));
+        if (re.s == NULL) {
+            throw_error("mysql_list_fields() failed");
+        }
+
+        ::MYSQL_FIELD* ff = ::mysql_fetch_fields(re.s);
+        for (unsigned cnt = ::mysql_field_count(m_conn); cnt; --cnt, ++ff) {
+            push_field(fields, ff);
+        }
+    }
+
     void query(const std::string& q)
     {
         if (::mysql_real_query(m_conn, q.data(), q.size()) != 0)
@@ -158,9 +191,7 @@ public:
             if (!ff) break;
 
             fields_n.push_back(
-                fields.insert(fields.end(),
-                              std::make_pair(ff->name,
-                                             field(ff->name, ff->type))));
+                push_field(fields, ff));
         }
 
         while (1) {
@@ -178,6 +209,7 @@ public:
 
             for (size_t z = 0; z != num_fields; ++z) {
                 fields_n[z]->second.data.assign(row[z], lens[z]);
+                fields_n[z]->second.is_null = row[z] == 0;
             }
 
             f(fields);

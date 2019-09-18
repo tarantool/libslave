@@ -122,7 +122,8 @@ enum Temporal_type
 #define TM_MAPID_OFFSET    0
 
 #define ROWS_HEADER_LEN_V1     8
-#define RW_MAPID_OFFSET    0
+#define ROWS_MAPID_OFFSET      0
+#define ROWS_FLAGS_OFFSET      6
 #define ROWS_HEADER_LEN        10
 
 #define ENCODED_FLAG_LENGTH 1
@@ -203,7 +204,7 @@ struct Row_event_info {
 
     bool has_after_image;
 
-    Row_event_info(const char* buf, unsigned int event_len, bool do_update, bool master_ge_56);
+    Row_event_info(const char* buf, const unsigned int event_len, const bool is_update, const bool is_v2_event);
 };
 
 struct Gtid_event_info
@@ -217,7 +218,7 @@ struct Gtid_event_info
 
 bool read_log_event(const char* buf, unsigned int event_len, Basic_event_info& info, EventStatIface* event_stat, bool master_ge_56, MasterInfo& master_info);
 
-void apply_row_event(slave::RelayLogInfo& rli, const Basic_event_info& bei, const Row_event_info& roi, ExtStateIface &ext_state, EventStatIface* event_stat);
+void apply_row_event(const slave::RelayLogInfo& rli, const Basic_event_info& bei, const Row_event_info& roi, ExtStateIface& ext_state, EventStatIface* event_stat);
 
 
 //------------------------------------------------------------------------------------------

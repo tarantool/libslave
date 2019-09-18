@@ -32,7 +32,7 @@
 
 #include <pthread.h>
 
-#include <mysql/mysql.h>
+#include <mysql.h>
 
 #include "binlog_pos.h"
 #include "slave_log_event.h"
@@ -155,6 +155,10 @@ public:
             i->second->set_column_filter(m_column_filters[i->first]);
             i->second->row_type = m_row_types[i->first];
         }
+    }
+
+    const RelayLogInfo& getRli() const {
+        return m_rli;
     }
 
     table_order_t getTableOrder() const {

@@ -17,12 +17,12 @@
 #include <map>
 #include <set>
 
-#include <mysql/my_global.h>
+#include <my_global.h>
 #undef min
 #undef max
 #undef test
 
-#include <mysql/mysql.h>
+#include <mysql.h>
 
 #include <zlib.h>
 
@@ -137,33 +137,45 @@ Table_map_event_info::Table_map_event_info(const char* buf, unsigned int event_l
     m_cols_types.assign(p_width, p_width + width);
 }
 
-Row_event_info::Row_event_info(const char* buf, unsigned int event_len, bool do_update, bool master_ge_56) {
-    const unsigned int rows_header_len = master_ge_56 ? ROWS_HEADER_LEN : ROWS_HEADER_LEN_V1;
-    if (event_len < LOG_EVENT_HEADER_LEN + rows_header_len + 2) {
-        LOG_ERROR(log, "Sanity check failed: " << event_len << " " << LOG_EVENT_HEADER_LEN + rows_header_len + 2);
-        throw std::runtime_error("Row_event_info::Row_event_info failed");
+Row_event_info::Row_event_info(const char* buf, const unsigned int event_len, const bool is_update, const bool is_v2_event)
+{
+    unsigned header_len = is_v2_event ? ROWS_HEADER_LEN : ROWS_HEADER_LEN_V1;
+
+    if (event_len < LOG_EVENT_HEADER_LEN + header_len + 2) {
+        LOG_ERROR(log, "Sanity check failed: " << event_len << " " << LOG_EVENT_HEADER_LEN + header_len + 2);
+        throw std::runtime_error("Row_event_info::Row_event_info() failed - event_len too small");
     }
 
-    has_after_image = do_update;
+    has_after_image = is_update;
+    unsigned char* p_header = (unsigned char*)buf + LOG_EVENT_HEADER_LEN;
 
-    m_table_id = uint6korr(buf + LOG_EVENT_HEADER_LEN + RW_MAPID_OFFSET);
+    p_header += ROWS_MAPID_OFFSET;
+    m_table_id = uint6korr(p_header);
+    p_header += ROWS_FLAGS_OFFSET + 2; // skip flags
 
-    unsigned char* start = (unsigned char*)(buf + LOG_EVENT_HEADER_LEN + rows_header_len);
+    if (is_v2_event) {
+        const unsigned var_header_len = uint2korr(p_header);
 
-    m_width = net_field_length(&start);
+        if (var_header_len < 2) {
+            throw std::runtime_error("Row_event_info::Row_event_info() failed - var_header_len < 2");
+        }
 
-    m_cols.assign(start, start + ((m_width + 7) / 8));
-
-    start += m_cols.size();
-
-    if (do_update) {
-
-        m_cols_ai.assign(start, start + m_cols.size());
-        start += m_cols_ai.size();
+        header_len += var_header_len - 2;
     }
 
-    m_rows_buf = start;
-    m_rows_end = start + (event_len - ((char*)start - buf));
+    unsigned char* p_data = (unsigned char*)buf + LOG_EVENT_HEADER_LEN + header_len;
+
+    m_width = net_field_length(&p_data);
+    m_cols.assign(p_data, p_data + (m_width + 7) / 8);
+    p_data += m_cols.size();
+
+    if (is_update) {
+        m_cols_ai.assign(p_data, p_data + m_cols.size());
+        p_data += m_cols_ai.size();
+    }
+
+    m_rows_buf = p_data;
+    m_rows_end = (unsigned char*)buf + event_len;
 }
 
 Gtid_event_info::Gtid_event_info(const char* buf, unsigned int event_len)
@@ -612,7 +624,7 @@ namespace // anonymous
 } // namespace anonymous
 
 
-void apply_row_event(slave::RelayLogInfo& rli, const Basic_event_info& bei, const Row_event_info& roi, ExtStateIface &ext_state, EventStatIface* event_stat) {
+void apply_row_event(const slave::RelayLogInfo& rli, const Basic_event_info& bei, const Row_event_info& roi, ExtStateIface& ext_state, EventStatIface* event_stat) {
     EventKind kind = eventKind(bei.type);
     std::pair<std::string,std::string> key = rli.getTableNameById(roi.m_table_id);
 

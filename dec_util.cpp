@@ -1,7 +1,7 @@
 #include "dec_util.h"
 
-#include <mysql/m_string.h>
-#include <mysql/my_sys.h>
+#include <m_string.h>
+#include <my_sys.h>
 
 namespace slave
 {

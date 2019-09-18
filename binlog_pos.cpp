@@ -6,7 +6,7 @@
 #include <memory>
 
 #include <alloca.h>
-#include <mysql/my_global.h>
+#include <my_global.h>
 #undef min
 #undef max
 #undef test
@@ -290,6 +290,32 @@ std::string Position::str() const
         }
     }
     result += "'";
+    return result;
+}
+
+std::string Position::strGtid() const
+{
+    std::string result;
+
+    if (gtid_executed.empty()) {
+        return result;
+    }
+    for (auto i1 = gtid_executed.cbegin(), e1 = gtid_executed.cend();;) {
+        result += i1->first;
+
+        for (auto& i2 : i1->second) {
+            result += ':' + std::to_string(i2.first);
+            if (i2.second != i2.first) {
+                result += '-' + std::to_string(i2.second);
+            }
+        }
+        if (++i1 == e1) {
+            break;
+        } else {
+            result += ',';
+        }
+    }
+
     return result;
 }
 

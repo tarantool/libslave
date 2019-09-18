@@ -25,11 +25,11 @@
 
 #include "nanomysql.h"
 
-#include <mysql/errmsg.h>
-#include <mysql/mysqld_error.h>
-#include <mysql/my_global.h>
-#include <mysql/m_ctype.h>
-#include <mysql/sql_common.h>
+#include <errmsg.h>
+#include <mysqld_error.h>
+#include <my_global.h>
+#include <m_ctype.h>
+#include <sql_common.h>
 
 #include <signal.h>
 #include <unistd.h>
@@ -181,155 +181,123 @@ void Slave::createTable(RelayLogInfo& rli,
 
     LOG_DEBUG(log, "Created new Table object: database:" << db_name << " table: " << tbl_name );
 
-    for (nanomysql::Connection::result_t::const_iterator i = res.begin(); i != res.end(); ++i) {
+    nanomysql::fields_t fields;
+    conn.get_fields(tbl_name, fields);
 
-        //row.at(0) - field name
-        //row.at(1) - field type
-        //row.at(2) - collation
-        //row.at(3) - can be null
+    for (const auto& row : res)
+    {
+        const std::string& name = row.at("Field").data;
+        const std::string& type = row.at("Type").data;
+        const nanomysql::field& m_field = fields.at(name);
 
-        std::map<std::string,nanomysql::field>::const_iterator z = i->find("Field");
-
-        if (z == i->end())
-            throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Field'");
-
-        std::string name = z->second.data;
-
-        z = i->find("Type");
-
-        if (z == i->end())
-            throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Type'");
-
-        std::string type = z->second.data;
-
-        z = i->find("Null");
-
-        if (z == i->end())
-            throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Null'");
-
-        std::string extract_field;
-
-        // Extract field type
-        for (size_t tmpi = 0; tmpi < type.size(); ++tmpi) {
-
-            if (!((type[tmpi] >= 'a' && type[tmpi] <= 'z') ||
-                  (type[tmpi] >= 'A' && type[tmpi] <= 'Z'))) {
-
-                extract_field = type.substr(0, tmpi);
-                break;
-            }
-
-            if (tmpi == type.size()-1) {
-                extract_field = type;
-                break;
-            }
-        }
-
-        if (extract_field.empty())
-            throw std::runtime_error("Slave::create_table(): Regexp error, type not found");
-
-        collate_info ci;
-        if ("varchar" == extract_field || "char" == extract_field)
-        {
-            z = i->find("Collation");
-            if (z == i->end())
-                throw std::runtime_error("Slave::create_table(): DESCRIBE query did not return 'Collation' for field '" + name + "'");
-            const std::string collate = z->second.data;
-            collate_map_t::const_iterator it = collate_map.find(collate);
-            if (collate_map.end() == it)
-                throw std::runtime_error("Slave::create_table(): cannot find collate '" + collate + "' from field "
-                                         + name + " type " + type + " in collate info map");
-            ci = it->second;
-            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << type
-                      << " Field type: " << extract_field << " Collation: " << ci.name);
-        }
-        else
-            LOG_DEBUG(log, "Created column: name-type: " << name << " - " << type
-                      << " Field type: " << extract_field );
+        auto get_maxlen = [&] () -> unsigned {
+            const std::string& collation = row.at("Collation").data;
+            return collation.empty() ? 1 : collate_map.at(collation).maxlen;
+        };
 
         PtrField field;
 
-        if (extract_field == "int")
-            field = PtrField(new Field_long(name, type));
+        switch (m_field.type) {
+         // case MYSQL_TYPE_DECIMAL:
+            case MYSQL_TYPE_NEWDECIMAL:
+                field = PtrField(new Field_decimal(name, type, m_field.length, m_field.decimals, m_field.flags & UNSIGNED_FLAG));
+                break;
 
-        else if (extract_field == "double")
-            field = PtrField(new Field_double(name, type));
+            case MYSQL_TYPE_TINY:
+                field = m_field.flags & UNSIGNED_FLAG
+                    ? PtrField(new Field_num<uint16, 1>(name, type))
+                    : PtrField(new Field_num<int16, 1>(name, type));
+                break;
 
-        else if (extract_field == "float")
-            field = PtrField(new Field_float(name, type));
+            case MYSQL_TYPE_SHORT:
+                field = m_field.flags & UNSIGNED_FLAG
+                    ? PtrField(new Field_num<uint16>(name, type))
+                    : PtrField(new Field_num<int16>(name, type));
+                break;
 
-        else if (extract_field == "timestamp")
-            field = PtrField(new Field_timestamp(name, type, m_master_info.is_old_storage));
+            case MYSQL_TYPE_INT24:
+                field = m_field.flags & UNSIGNED_FLAG
+                    ? PtrField(new Field_num<uint32, 3>(name, type))
+                    : PtrField(new Field_num<int32, 3>(name, type));
+                break;
 
-        else if (extract_field == "datetime")
-            field = PtrField(new Field_datetime(name, type, m_master_info.is_old_storage));
+            case MYSQL_TYPE_LONG:
+                field = m_field.flags & UNSIGNED_FLAG
+                    ? PtrField(new Field_num<uint32>(name, type))
+                    : PtrField(new Field_num<int32>(name, type));
+                break;
 
-        else if (extract_field == "date")
-            field = PtrField(new Field_date(name, type));
+            case MYSQL_TYPE_LONGLONG:
+                field = m_field.flags & UNSIGNED_FLAG
+                    ? PtrField(new Field_num<ulonglong>(name, type))
+                    : PtrField(new Field_num<longlong>(name, type));
+                break;
 
-        else if (extract_field == "year")
-            field = PtrField(new Field_year(name, type));
+            case MYSQL_TYPE_FLOAT:
+                field = PtrField(new Field_num<float>(name, type));
+                break;
 
-        else if (extract_field == "time")
-            field = PtrField(new Field_time(name, type, m_master_info.is_old_storage));
+            case MYSQL_TYPE_DOUBLE:
+                field = PtrField(new Field_num<double>(name, type));
+                break;
 
-        else if (extract_field == "enum")
-            field = PtrField(new Field_enum(name, type));
+            case MYSQL_TYPE_TIMESTAMP:
+            case MYSQL_TYPE_TIMESTAMP2:
+                field = PtrField(new Field_timestamp(name, type, m_field.decimals, m_master_info.is_old_storage));
+                break;
 
-        else if (extract_field == "set")
-            field = PtrField(new Field_set(name, type));
+            case MYSQL_TYPE_TIME:
+            case MYSQL_TYPE_TIME2:
+                field = PtrField(new Field_time(name, type, m_field.decimals, m_master_info.is_old_storage));
+                break;
 
-        else if (extract_field == "varchar")
-            field = PtrField(new Field_varstring(name, type, ci));
+            case MYSQL_TYPE_DATETIME:
+            case MYSQL_TYPE_DATETIME2:
+                field = PtrField(new Field_datetime(name, type, m_field.decimals, m_master_info.is_old_storage));
+                break;
 
-        else if (extract_field == "char")
-            field = PtrField(new Field_varstring(name, type, ci));
+            case MYSQL_TYPE_DATE:
+            case MYSQL_TYPE_NEWDATE:
+                field = PtrField(new Field_date(name, type));
+                break;
 
-        else if (extract_field == "tinyint")
-            field = PtrField(new Field_tiny(name, type));
+            case MYSQL_TYPE_YEAR:
+                field = PtrField(new Field_year(name, type));
+                break;
 
-        else if (extract_field == "smallint")
-            field = PtrField(new Field_short(name, type));
+            case MYSQL_TYPE_VARCHAR:
+            case MYSQL_TYPE_VAR_STRING:
+                field = PtrField(new Field_string(name, type, m_field.length, get_maxlen()));
+                break;
 
-        else if (extract_field == "mediumint")
-            field = PtrField(new Field_medium(name, type));
+         // case MYSQL_TYPE_ENUM:
+         // case MYSQL_TYPE_SET:
+            case MYSQL_TYPE_STRING:
+                if (m_field.flags & ENUM_FLAG) {
+                    field = PtrField(new Field_enum(name, type));
+                }
+                else if (m_field.flags & SET_FLAG) {
+                    field = PtrField(new Field_set(name, type));
+                }
+                else {
+                    field = PtrField(new Field_string(name, type, m_field.length, get_maxlen()));
+                }
+                break;
 
-        else if (extract_field == "bigint")
-            field = PtrField(new Field_longlong(name, type));
+            case MYSQL_TYPE_BIT:
+                field = PtrField(new Field_bit(name, type, m_field.length));
+                break;
 
-        else if (extract_field == "text")
-            field = PtrField(new Field_blob(name, type));
+         // case MYSQL_TYPE_TINY_BLOB:
+         // case MYSQL_TYPE_MEDIUM_BLOB:
+         // case MYSQL_TYPE_LONG_BLOB:
+            case MYSQL_TYPE_BLOB:
+                field = PtrField(new Field_blob(name, type, m_field.length));
+                break;
 
-        else if (extract_field == "tinytext")
-            field = PtrField(new Field_tinyblob(name, type));
-
-        else if (extract_field == "mediumtext")
-            field = PtrField(new Field_mediumblob(name, type));
-
-        else if (extract_field == "longtext")
-            field = PtrField(new Field_longblob(name, type));
-
-        else if (extract_field == "blob")
-            field = PtrField(new Field_blob(name, type));
-
-        else if (extract_field == "tinyblob")
-            field = PtrField(new Field_tinyblob(name, type));
-
-        else if (extract_field == "mediumblob")
-            field = PtrField(new Field_mediumblob(name, type));
-
-        else if (extract_field == "longblob")
-            field = PtrField(new Field_longblob(name, type));
-
-        else if (extract_field == "decimal")
-            field = PtrField(new Field_decimal(name, type));
-
-        else if (extract_field == "bit")
-            field = PtrField(new Field_bit(name, type));
-
-        else {
-            LOG_ERROR(log, "createTable: class name don't exist: " << extract_field );
-            throw std::runtime_error("class name does not exist: " + extract_field);
+            default:
+                LOG_ERROR(log, "Slave::create_table(): class name don't exist for type: " << m_field.type );
+                throw std::runtime_error("Slave::create_table(): error in field '" + name + "'");
         }
 
         table->fields.push_back(std::move(field));
@@ -604,7 +572,7 @@ connected:
                 gtid_next.second = gei.m_gno;
             }
 
-            if (process_event(event, m_rli))
+            else if (process_event(event, m_rli))
             {
                 LOG_TRACE(log, "Error in processing event.");
             }
@@ -796,7 +764,7 @@ namespace
 {
 std::string checkAlterOrCreateQuery(const std::string& str)
 {
-    static const std::regex query_regex(R"(\s*(?:alter\s+table|create\s+table(?:\s+if\s+not\s+exists)?)\s+(?:`?\w+`?\.)?`?(\w+)`?(?:[^\w\.`].*$|$))",
+    static const std::regex query_regex(R"((?:alter\s+table|create\s+table(?:\s+if\s+not\s+exists)?)\s+(?:(?:`[^`]+`|\w+)\s*\.\s*)?(?:`([^`]+)|(\w+)))",
                                         std::regex_constants::optimize | std::regex_constants::icase);
 
     std::string s;
@@ -804,7 +772,7 @@ std::string checkAlterOrCreateQuery(const std::string& str)
 
     std::smatch sm;
     if (std::regex_match(s, sm, query_regex))
-        return sm[1];
+        return sm.length(1) ? sm[1] : sm[2];
     return "";
 }
 }// anonymouos-namespace
@@ -899,23 +867,41 @@ int Slave::process_event(const slave::Basic_event_info& bei, RelayLogInfo& m_rli
         break;
     }
 
-    case WRITE_ROWS_EVENT_V1:
-    case UPDATE_ROWS_EVENT_V1:
-    case DELETE_ROWS_EVENT_V1:
-    case WRITE_ROWS_EVENT:
-    case UPDATE_ROWS_EVENT:
-    case DELETE_ROWS_EVENT:
-    {
-        LOG_TRACE(log, "Got " << (bei.type == WRITE_ROWS_EVENT_V1 || bei.type == WRITE_ROWS_EVENT ? "WRITE" :
-                                  bei.type == DELETE_ROWS_EVENT_V1 || bei.type == DELETE_ROWS_EVENT ? "DELETE" :
-                                  "UPDATE") << "_ROWS_EVENT");
-
-        Row_event_info roi(bei.buf, bei.event_len, (bei.type == UPDATE_ROWS_EVENT_V1 || bei.type == UPDATE_ROWS_EVENT), masterGe56());
-
+    case WRITE_ROWS_EVENT_V1: {
+        LOG_TRACE(log, "Got WRITE_ROWS_EVENT_V1");
+        Row_event_info roi(bei.buf, bei.event_len, false, false);
         apply_row_event(m_rli, bei, roi, ext_state, event_stat);
+    } break;
 
-        break;
-    }
+    case UPDATE_ROWS_EVENT_V1: {
+        LOG_TRACE(log, "Got UPDATE_ROWS_EVENT_V1");
+        Row_event_info roi(bei.buf, bei.event_len, true, false);
+        apply_row_event(m_rli, bei, roi, ext_state, event_stat);
+    } break;
+
+    case DELETE_ROWS_EVENT_V1: {
+        LOG_TRACE(log, "Got DELETE_ROWS_EVENT_V1");
+        Row_event_info roi(bei.buf, bei.event_len, false, false);
+        apply_row_event(m_rli, bei, roi, ext_state, event_stat);
+    } break;
+
+    case WRITE_ROWS_EVENT: {
+        LOG_TRACE(log, "Got WRITE_ROWS_EVENT");
+        Row_event_info roi(bei.buf, bei.event_len, false, true);
+        apply_row_event(m_rli, bei, roi, ext_state, event_stat);
+    } break;
+
+    case UPDATE_ROWS_EVENT: {
+        LOG_TRACE(log, "Got UPDATE_ROWS_EVENT");
+        Row_event_info roi(bei.buf, bei.event_len, true, true);
+        apply_row_event(m_rli, bei, roi, ext_state, event_stat);
+    } break;
+
+    case DELETE_ROWS_EVENT: {
+        LOG_TRACE(log, "Got DELETE_ROWS_EVENT");
+        Row_event_info roi(bei.buf, bei.event_len, false, true);
+        apply_row_event(m_rli, bei, roi, ext_state, event_stat);
+    } break;
 
     default:
         break;

@@ -41,6 +41,7 @@ struct Position
     bool reachedOtherPos(const Position& other) const;
 
     std::string str() const;
+    std::string strGtid() const;
 };
 
 inline std::ostream& operator<<(std::ostream& os, const Position& pos)
