@@ -6,7 +6,7 @@
 #include <memory>
 
 #include <alloca.h>
-#include <my_global.h>
+#include <my_byteorder.h>
 #undef min
 #undef max
 #undef test

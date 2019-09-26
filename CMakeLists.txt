@@ -5,7 +5,7 @@ OPTION (BUILD_STATIC "Force building static library" ON)
 OPTION (WITH_TESTING "Enable building the tests framework" OFF)
 
 # Build flags
-SET (CMAKE_CXX_STANDARD 11)
+SET (CMAKE_CXX_STANDARD 14)
 SET (CMAKE_CXX_STANDARD_REQUIRED TRUE)
 SET (CMAKE_CXX_EXTENSIONS FALSE)
 
@@ -34,19 +34,23 @@ INCLUDE_DIRECTORIES (
     ${MYSQL_BIN}/include
     ${MYSQL_SRC}/include
     ${MYSQL_SRC}/libbinlogevents/export
-    ${BOOST_DIR}/boost_1_59_0/boost
+    ${BOOST_DIR}/boost_1_69_0/boost
+)
+ADD_CUSTOM_TARGET (
+    fix_static_build
+    WORKING_DIRECTORY ${MYSQL_BIN}
+    COMMAND sed -i '/GET_TARGET_PROPERTY.*libmysql/s/libmysql/perconaserverclient/' ${MYSQL_SRC}/scripts/CMakeLists.txt
 )
 ADD_CUSTOM_TARGET (
     mysql_configure
     WORKING_DIRECTORY ${MYSQL_BIN}
+    DEPENDS fix_static_build
     COMMAND "${CMAKE_COMMAND}"
         -DCMAKE_BUILD_TYPE=Release
-        -DWITH_RAPID=0
         -DDISABLE_SHARED=1
         -DENABLED_PROFILING=0
         -DWITHOUT_SERVER=1
         -DWITH_CLIENT_PROTOCOL_TRACING=0
-        -DWITH_PIC=0
         -DWITH_DEFAULT_FEATURE_SET=0
         -DWITH_SSL=bundled
         -DWITH_ZLIB=bundled
@@ -61,7 +65,7 @@ ADD_CUSTOM_TARGET (
     mysqlclient_build
     WORKING_DIRECTORY ${MYSQL_BIN}
     DEPENDS mysql_configure
-    COMMAND ${CMAKE_COMMAND} --build . --target mysqlclient
+    COMMAND ${CMAKE_COMMAND} --build . --target perconaserverclient
 )
 ADD_CUSTOM_TARGET (
     binlogevents_build
@@ -72,7 +76,7 @@ ADD_CUSTOM_TARGET (
 
 ADD_LIBRARY (mysqlclient STATIC IMPORTED)
 ADD_DEPENDENCIES (mysqlclient mysqlclient_build)
-SET_PROPERTY (TARGET mysqlclient PROPERTY IMPORTED_LOCATION ${MYSQL_BIN}/libmysql/libmysqlclient.a)
+SET_PROPERTY (TARGET mysqlclient PROPERTY IMPORTED_LOCATION ${MYSQL_BIN}/archive_output_directory/libperconaserverclient.a)
 
 ADD_LIBRARY (binlogevents STATIC IMPORTED)
 ADD_DEPENDENCIES (binlogevents binlogevents_build)
@@ -80,7 +84,7 @@ SET_PROPERTY (TARGET binlogevents PROPERTY IMPORTED_LOCATION ${MYSQL_BIN}/libbin
 
 ADD_DEFINITIONS (-DDBUG_OFF)
 SET (LINK_TYPE STATIC)
-SET (MYSQL_LIBS mysqlclient binlogevents)
+SET (MYSQL_LIBS mysqlclient binlogevents -lssl -lcrypto)
 MESSAGE (STATUS "Build ${LINK_TYPE} slave library")
 
 FILE (GLOB HDR "*.h")

@@ -1,3 +1,4 @@
 [submodule "mysql"]
 	path = mysql
-	url = https://github.com/mysql/mysql-server.git
+	url = https://github.com/percona/percona-server.git
+	branch = 8.0

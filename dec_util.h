@@ -64,7 +64,7 @@
                 7E F2 04 37 2D FB 2D
 */
 
-#include <my_global.h>
+#include <my_dbug.h>
 #include <decimal.h>
 
 namespace slave

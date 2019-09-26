@@ -27,7 +27,8 @@
 
 #include <errmsg.h>
 #include <mysqld_error.h>
-#include <my_global.h>
+#include <my_byteorder.h>
+#include <typelib.h>
 #include <m_ctype.h>
 #include <sql_common.h>
 

@@ -18,7 +18,7 @@
 #include <vector>
 #include <stdexcept>
 #include <utility>  // for std::move
-#include <my_global.h>
+#include <my_byteorder.h>
 #undef min
 #undef max
 #undef test
@@ -173,7 +173,7 @@ const char* Field_timestamp::unpack(const char* from)
     my_time.time_type = MYSQL_TIMESTAMP_DATETIME;
 
     char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-    const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
+    const int value_length = ::my_TIME_to_str(my_time, (char*)&buffer, precision);
 
     std::string value((char*)&buffer, value_length);
 
@@ -211,7 +211,7 @@ const char* Field_time::unpack(const char* from)
     }
 
     char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-    const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
+    const int value_length = ::my_TIME_to_str(my_time, (char*)&buffer, precision);
 
     std::string value((char*)&buffer, value_length);
 
@@ -249,7 +249,7 @@ const char* Field_datetime::unpack(const char* from)
     }
 
     char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-    const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, precision);
+    const int value_length = ::my_TIME_to_str(my_time, (char*)&buffer, precision);
 
     std::string value((char*)&buffer, value_length);
 
@@ -272,7 +272,7 @@ const char* Field_date::unpack(const char* from)
     my_time.time_type = MYSQL_TIMESTAMP_DATE;
 
     char buffer[ MAX_DATE_STRING_REP_LENGTH ];
-    const int value_length = ::my_TIME_to_str(&my_time, (char*)&buffer, 0);
+    const int value_length = ::my_TIME_to_str(my_time, (char*)&buffer, 0);
 
     std::string value((char*)&buffer, value_length);
 

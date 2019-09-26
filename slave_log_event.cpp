@@ -17,7 +17,7 @@
 #include <map>
 #include <set>
 
-#include <my_global.h>
+#include <my_byteorder.h>
 #undef min
 #undef max
 #undef test

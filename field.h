@@ -31,10 +31,7 @@
 #include <my_time.h>
 #include <m_string.h>
 #include <binary_log_funcs.h>
-
-extern "C" {
 #include <decimal.h>
-}
 
 namespace slave
 {
