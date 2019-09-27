@@ -183,6 +183,7 @@ void Slave::createTable(RelayLogInfo& rli,
     LOG_DEBUG(log, "Created new Table object: database:" << db_name << " table: " << tbl_name );
 
     nanomysql::fields_t fields;
+    conn.select_db(db_name);
     conn.get_fields(tbl_name, fields);
 
     for (const auto& row : res)
@@ -190,11 +191,6 @@ void Slave::createTable(RelayLogInfo& rli,
         const std::string& name = row.at("Field").data;
         const std::string& type = row.at("Type").data;
         const nanomysql::field& m_field = fields.at(name);
-
-        auto get_maxlen = [&] () -> unsigned {
-            const std::string& collation = row.at("Collation").data;
-            return collation.empty() ? 1 : collate_map.at(collation).maxlen;
-        };
 
         PtrField field;
 
@@ -268,7 +264,7 @@ void Slave::createTable(RelayLogInfo& rli,
 
             case MYSQL_TYPE_VARCHAR:
             case MYSQL_TYPE_VAR_STRING:
-                field = PtrField(new Field_string(name, type, m_field.length, get_maxlen()));
+                field = PtrField(new Field_string(name, type, m_field.length));
                 break;
 
          // case MYSQL_TYPE_ENUM:
@@ -281,7 +277,7 @@ void Slave::createTable(RelayLogInfo& rli,
                     field = PtrField(new Field_set(name, type));
                 }
                 else {
-                    field = PtrField(new Field_string(name, type, m_field.length, get_maxlen()));
+                    field = PtrField(new Field_string(name, type, m_field.length));
                 }
                 break;
 
@@ -840,10 +836,42 @@ int Slave::process_event(const slave::Basic_event_info& bei, RelayLogInfo& m_rli
             if (table && tmi.m_cols_types.size() == table->fields.size())
             {
                 int i = 0;
+                auto metadata = tmi.m_metadata.data();
                 for (const auto& x : tmi.m_cols_types)
                 {
                     switch (x)
                     {
+                    case MYSQL_TYPE_FLOAT:
+                    case MYSQL_TYPE_DOUBLE:
+                    case MYSQL_TYPE_GEOMETRY:
+                    case MYSQL_TYPE_JSON:
+                        metadata++;
+                        break;
+                    case MYSQL_TYPE_BIT:
+                    case MYSQL_TYPE_NEWDECIMAL:
+                        metadata += 2;
+                        break;
+                 // case MYSQL_TYPE_TINY_BLOB:
+                 // case MYSQL_TYPE_MEDIUM_BLOB:
+                 // case MYSQL_TYPE_LONG_BLOB:
+                    case MYSQL_TYPE_BLOB:
+                        static_cast<Field_blob*>(table->fields[i].get())->set_size(*metadata++);
+                        break;
+                    case MYSQL_TYPE_VARCHAR:
+                        static_cast<Field_string*>(table->fields[i].get())->set_length(uint2korr(metadata));
+                        metadata += 2;
+                        break;
+                 // case MYSQL_TYPE_ENUM:
+                 // case MYSQL_TYPE_SET:
+                    case MYSQL_TYPE_STRING:
+                    case MYSQL_TYPE_VAR_STRING: {
+                        unsigned hi_byte = *metadata++;
+                        if (hi_byte != MYSQL_TYPE_ENUM && hi_byte != MYSQL_TYPE_SET) {
+                            hi_byte = ((hi_byte << 4) & 0x300) ^ 0x300;
+                            static_cast<Field_string*>(table->fields[i].get())->set_length(hi_byte | *metadata);
+                        }
+                        metadata++;
+                    }   break;
                     case MYSQL_TYPE_TIMESTAMP:
                     case MYSQL_TYPE_DATETIME:
                     case MYSQL_TYPE_TIME:
@@ -853,12 +881,17 @@ int Slave::process_event(const slave::Basic_event_info& bei, RelayLogInfo& m_rli
                     case MYSQL_TYPE_DATETIME2:
                     case MYSQL_TYPE_TIME2:
                         static_cast<Field_temporal*>(table->fields[i].get())->reset(false);
+                        metadata++;
                         break;
                     default:
                         break;
                     }
                     i++;
                 }
+                LOG_TRACE(log, "Metadata size: " << tmi.m_metadata.size() << ", bytes used: " << (int)(metadata - tmi.m_metadata.data()));
+            }
+            else {
+                LOG_WARNING(log, "Number of columns changed for " << tmi.m_dbnam << '.' << tmi.m_tblnam)
             }
         }
 

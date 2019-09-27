@@ -135,6 +135,11 @@ Table_map_event_info::Table_map_event_info(const char* buf, unsigned int event_l
     unsigned long width = net_field_length(&p_width);
 
     m_cols_types.assign(p_width, p_width + width);
+
+    unsigned char *metadata = p_width + width;
+    unsigned long metadata_length = net_field_length(&metadata);
+
+    m_metadata.assign(metadata, metadata + metadata_length);
 }
 
 Row_event_info::Row_event_info(const char* buf, const unsigned int event_len, const bool is_update, const bool is_v2_event)

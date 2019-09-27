@@ -32,6 +32,7 @@
 #include <m_string.h>
 #include <binary_log_funcs.h>
 #include <decimal.h>
+#include "Logging.h"
 
 namespace slave
 {
@@ -222,17 +223,21 @@ class Field_string : public Field
         Field_string(
             const std::string& name,
             const std::string& type,
-            const unsigned length_,
-            const unsigned maxlen
+            const unsigned length_
         ) :
             Field(name, type),
-            length(length_ * maxlen)
+            length(length_)
         {}
 
         const char* unpack(const char* from);
 
+        void set_length(const unsigned x) {
+            LOG_TRACE(log, "field " << field_name << " new string length: " << x);
+            length = x;
+        }
+
     private:
-        const unsigned length;
+        unsigned length;
 };
 
 // ----- enums -------------------------------------------------------------------------------------
@@ -304,6 +309,11 @@ class Field_blob : public Field {
             const unsigned length
         );
         const char* unpack(const char* from);
+
+        void set_size(const unsigned x) {
+            LOG_TRACE(log, "field " << field_name << " new blob size: " << x);
+            size = x;
+        }
 
     private:
         unsigned size;

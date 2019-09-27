@@ -82,7 +82,7 @@ const char* Field_num<T, length>::unpack(const char* from)
 {
     T value = get_value(from);
 
-    LOG_TRACE(log, "  num size " << length << ": " << value);
+    LOG_TRACE(log, "field " << field_name << " num size " << length << ": " << value);
 
     field_data = value;
     return from + length;
@@ -123,7 +123,7 @@ const char* Field_decimal::unpack(const char *from)
 
     std::string value((char*)buffer, value_length);
 
-    LOG_TRACE(log, "  decimal: '" << value << "' // " << length);
+    LOG_TRACE(log, "field " << field_name << "  decimal: '" << value << "' // " << length);
 
     field_data = std::move(value);
     return from + length;
@@ -177,7 +177,7 @@ const char* Field_timestamp::unpack(const char* from)
 
     std::string value((char*)&buffer, value_length);
 
-    LOG_TRACE(log, "  timestamp: '" << value << "' // " << length);
+    LOG_TRACE(log, "field " << field_name << "  timestamp: '" << value << "' // " << length);
 
     field_data = std::move(value);
     return from + length;
@@ -215,7 +215,7 @@ const char* Field_time::unpack(const char* from)
 
     std::string value((char*)&buffer, value_length);
 
-    LOG_TRACE(log, "  time: '" << value << "' // " << length);
+    LOG_TRACE(log, "field " << field_name << "  time: '" << value << "' // " << length);
 
     field_data = std::move(value);
     return from + length;
@@ -253,7 +253,7 @@ const char* Field_datetime::unpack(const char* from)
 
     std::string value((char*)&buffer, value_length);
 
-    LOG_TRACE(log, "  datetime: '" << value << "' // " << length);
+    LOG_TRACE(log, "field " << field_name << "  datetime: '" << value << "' // " << length);
 
     field_data = std::move(value);
     return from + length;
@@ -276,7 +276,7 @@ const char* Field_date::unpack(const char* from)
 
     std::string value((char*)&buffer, value_length);
 
-    LOG_TRACE(log, "  date: '" << value << "'");
+    LOG_TRACE(log, "field " << field_name << "  date: '" << value << "'");
 
     field_data = std::move(value);
     return from + 3;
@@ -288,7 +288,7 @@ const char* Field_year::unpack(const char* from)
     uint16 value = *(const uchar*)from + 1900;
     field_data = value;
 
-    LOG_TRACE(log, "  year: " << value);
+    LOG_TRACE(log, "field " << field_name << "  year: " << value);
     return from + 1;
 }
 void Field_year::unpack_str(const std::string& from)
@@ -319,7 +319,7 @@ const char* Field_string::unpack(const char* from)
 
     std::string value(from, value_length);
 
-    LOG_TRACE(log, "  string size " << length << ": '" << value << "' // " << value_length);
+    LOG_TRACE(log, "field " << field_name << "  string size " << length << ": '" << value << "' // " << value_length);
 
     field_data = std::move(value);
     return from + value_length;
@@ -361,7 +361,7 @@ const char* Field_enum::unpack(const char* from)
     std::string value;
     if (nr) value.assign(str_values.at(nr - 1));
 
-    LOG_TRACE(log, "  enum size " << length << ": " << value);
+    LOG_TRACE(log, "field " << field_name << "  enum size " << length << ": " << value);
 
     field_data = std::move(value);
     return from + length;
@@ -392,7 +392,7 @@ const char* Field_set::unpack(const char* from)
         value.pop_back();
     }
 
-    LOG_TRACE(log, "  set size " << length << ": " << value);
+    LOG_TRACE(log, "field " << field_name << "  set size " << length << ": " << value);
 
     field_data = std::move(value);
     return from + length;
@@ -407,7 +407,7 @@ const char* Field_bit::unpack(const char *from)
         value = (value << 8) | *from;
     }
 
-    LOG_TRACE(log, "  bit size " << length << ": " << value);
+    LOG_TRACE(log, "field " << field_name << "  bit size " << length << ": " << value);
 
     field_data = value;
     return from;
@@ -453,7 +453,7 @@ const char* Field_blob::unpack(const char* from)
 
     std::string value(from, value_length);
 
-    LOG_TRACE(log, "  blob size " << size << ": '" << value << "' // " << value_length);
+    LOG_TRACE(log, "field " << field_name << "  blob size " << size << ": '" << value << "' // " << value_length);
 
     field_data = std::move(value);
     return from + value_length;

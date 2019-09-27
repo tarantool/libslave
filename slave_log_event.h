@@ -187,6 +187,7 @@ struct Table_map_event_info {
     std::string m_tblnam;
     std::string m_dbnam;
     std::vector<unsigned char> m_cols_types;
+    std::vector<unsigned char> m_metadata;
 
     Table_map_event_info(const char* buf, unsigned int event_len);
 };
