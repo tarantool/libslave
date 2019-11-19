@@ -49,7 +49,7 @@ public:
         m_map_table_name[table_id] = std::make_pair(db_name, table_name);
     }
 
-    const std::pair<std::string,std::string> getTableNameById(int table_id) const
+    const std::pair<std::string,std::string> getTableNameById(unsigned long table_id) const
     {
         id_to_name_t::const_iterator p = m_map_table_name.find(table_id);
 
