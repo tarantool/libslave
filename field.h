@@ -16,6 +16,7 @@
 #define __SLAVE_FIELD_H_
 
 #include <string>
+#include <vector>
 #include <boost/any.hpp>
 
 #include <mysql/my_time.h>

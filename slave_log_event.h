@@ -87,6 +87,14 @@ enum Log_event_type
 
   XA_PREPARE_LOG_EVENT= 38,
 
+  /**
+    Extension of UPDATE_ROWS_EVENT, allowing partial values according
+    to binlog_row_value_options.
+  */
+  PARTIAL_UPDATE_ROWS_EVENT = 39,
+
+  TRANSACTION_PAYLOAD_EVENT = 40,
+
   ENUM_END_EVENT
 };
 
