@@ -85,6 +85,9 @@ SET_PROPERTY (TARGET binlogevents PROPERTY IMPORTED_LOCATION ${MYSQL_BIN}/libbin
 ADD_DEFINITIONS (-DDBUG_OFF)
 SET (LINK_TYPE STATIC)
 SET (MYSQL_LIBS mysqlclient binlogevents -lssl -lcrypto)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    LIST (APPEND MYSQL_LIBS ${CMAKE_DL_LIBS})
+endif ()
 MESSAGE (STATUS "Build ${LINK_TYPE} slave library")
 
 FILE (GLOB HDR "*.h")

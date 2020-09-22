@@ -5,6 +5,9 @@ TARGET_LINK_LIBRARIES (test_client slave)
 
 ADD_EXECUTABLE (db_filler db_filler.cpp)
 TARGET_LINK_LIBRARIES (db_filler slave)
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    TARGET_LINK_LIBRARIES (db_filler dl)
+endif ()
 
 IF (Boost_FOUND)
     ADD_EXECUTABLE (unit_test unit_test.cpp)
