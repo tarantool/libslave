@@ -1,4 +1,4 @@
-[![Build status](https://travis-ci.org/vozbu/libslave.svg)](https://travis-ci.org/vozbu/libslave)
+[![Build Status](https://travis-ci.org/tarantool/libslave.svg?branch=master)](https://travis-ci.org/tarantool/libslave)
 
 ABOUT
 ===================================================================
