@@ -4,11 +4,11 @@ ABOUT
 ===================================================================
 
 This is a library that allows any arbitrary C++ application to connect
-to a Mysql replication master and read/parse the replication binary
+to a MySQL replication master and read/parse the replication binary
 logs.
 
-In effect, any application can now act like a Mysql replication slave,
-without having to compile or link with any Mysql server code.
+In effect, any application can now act like a MySQL replication slave,
+without having to compile or link with any MySQL server code.
 
 One important use-case for this library is for receiving changes in
 the master database in real-time, without having the store the
@@ -47,16 +47,22 @@ For building the library, you will need:
    At the minimum, you will need at least the any.hpp.
    If boost_unit_test_framework is found, tests will be built.
 
- * You (likely) will need to review and edit the contents of Logging.h
-   and SlaveStats.h
+ * You (likely) will need to review and edit the contents of `Logging.h`
+   and `SlaveStats.h`
    These headers contain the compile-time configuration of the logging
    and monitoring subsystems.
    The provided defaults are sub-standard and an example only.
 
+Ubuntu: cmake clang libboost-all-dev git libmysqlclient-dev
+
+https://packages.ubuntu.com/xenial/amd64/libmysqlclient-dev/filelist
+https://packages.ubuntu.com/bionic/amd64/libmysqlclient-dev/filelist
+https://packages.ubuntu.com/focal/amd64/libmysqlclient-dev/filelist
+
 Usage requirements
 -------------------------------------------------------------------
- * Requires >= Mysql 5.1.23 and <= Mysql 5.7.12. Tested with some of the 5.1, 5.5, 5.6, 5.7
-   versions of mysql servers.
+ * Requires >= MySQL 5.1.23 and <= MySQL 5.7.12. Tested with some of the 5.1, 5.5, 5.6, 5.7
+   versions of MySQL servers.
  * Requires rights `REPLICATION SLAVE` and `REPLICATION CLIENT`, and `SELECT` for tables being used.
 
 Compiling
@@ -66,12 +72,12 @@ Create directory "build" in source tree, step into it and run
 "cmake .. -DCMAKE_BUILD_TYPE=Release".
 Then, if configure step is complete, run "make".
 
-Review and edit Logging.h and SlaveStats.h to interface the library to
+Review and edit `Logging.h` and `SlaveStats.h` to interface the library to
 your app's logging and monitoring subsystems.
 
 You can type "make test" inside of "build" directory to run tests. You
 will need a working mysql server for it. Settings of mysql connection
-can be adjusted in test/data/mysql.conf. Type "ctest -V" if something
+can be adjusted in `test/data/mysql.conf`. Type `ctest -V` if something
 went wrong and you need see test output.
 
 Using the library
@@ -92,7 +98,7 @@ CREDITS
 
 https://github.com/Begun/libslave
 
-(c) 2016, "Mail.Ru Group" LLC
+(c) 2016-2020, "Mail.Ru Group" LLC
 
 https://github.com/vozbu/libslave
 

@@ -18,12 +18,14 @@
 #include <vector>
 #include <stdexcept>
 #include <utility>  // for std::move
+#include <mysql/my_global.h>
 #include <my_byteorder.h>
 #undef min
 #undef max
 #undef test
 
-#include <m_string.h>
+#include <mysql/m_string.h>
+#include <mysql/my_config.h>
 #include <sstream>
 
 #include "dec_util.h"
@@ -31,6 +33,12 @@
 
 #include "Logging.h"
 
+//// ---
+
+#include <mysql/my_global.h>
+
+#include <mysql/decimal.h>
+//#include "decimal_internal.h"
 
 
 
@@ -117,9 +125,15 @@ const char* Field_decimal::unpack(const char *from)
     int value_length = decimal_string_size(&dec);
     char buffer[ value_length ];
 
-    if (::decimal2string(&dec, (char*)&buffer, &value_length, zerofill ? precision : 0, scale, '0') != E_DEC_OK) {
+#if MYSQL_VERSION_MAJOR == 5 && MYSQL_VERSION_MINOR == 7
+    if (::decimal2string(&dec, (char*)&buffer, &value_length, zerofill ? precision : 0, scale, 'm') != E_DEC_OK) {
         throw std::runtime_error("Field_decimal::unpack(): decimal2string() failed");
     }
+#else
+    if (::decimal2string(&dec, (char*)&buffer, &value_length, zerofill ? precision : 0, scale) != E_DEC_OK) {
+        throw std::runtime_error("Field_decimal::unpack(): decimal2string() failed");
+    }
+#endif
 
     std::string value((char*)buffer, value_length);
 

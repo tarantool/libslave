@@ -15,7 +15,7 @@
 #ifndef __NANOMYSQL_H
 #define __NANOMYSQL_H
 
-#include <mysql.h>
+//#include <mysql.h>
 #include "MysqlGuard.h"
 #include "nanofield.h"
 #include <stdexcept>

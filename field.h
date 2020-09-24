@@ -28,10 +28,9 @@
 #undef test
 #endif /* test */
 
-#include <my_time.h>
-#include <m_string.h>
-#include <binary_log_funcs.h>
-#include <decimal.h>
+#include <mysql/binary_log_types.h>
+#include <mysql/mysql_time.h>
+#include <mysql/decimal.h>
 #include "Logging.h"
 
 namespace slave

@@ -6,6 +6,7 @@
 #include <memory>
 
 #include <alloca.h>
+#include <mysql/my_global.h>
 #include <my_byteorder.h>
 #undef min
 #undef max

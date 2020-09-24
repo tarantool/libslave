@@ -32,7 +32,8 @@
 
 #include <pthread.h>
 
-#include <mysql.h>
+#include <mysql/my_global.h>
+#include <mysql/mysql.h>
 
 #include "binlog_pos.h"
 #include "slave_log_event.h"

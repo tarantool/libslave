@@ -25,15 +25,16 @@
 
 #include "nanomysql.h"
 
-#include <errmsg.h>
-#include <mysqld_error.h>
-#include <my_byteorder.h>
-#include <typelib.h>
-#include <m_ctype.h>
-#include <sql_common.h>
+#include <mysql/m_ctype.h>
+#include <mysql/mysqld_error.h>
+#include <mysql/errmsg.h>
+#include <mysql/sql_common.h>
 
 #include <signal.h>
 #include <unistd.h>
+#include <stdint.h>
+
+
 
 #define packet_end_data 1
 
