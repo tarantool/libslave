@@ -4,6 +4,8 @@ PROJECT (libslave)
 OPTION (BUILD_STATIC "Force building static library" ON)
 OPTION (WITH_TESTING "Enable building the tests framework" OFF)
 
+FIND_PACKAGE (Boost)
+
 # Build flags
 SET (CMAKE_CXX_STANDARD 14)
 SET (CMAKE_CXX_STANDARD_REQUIRED TRUE)
