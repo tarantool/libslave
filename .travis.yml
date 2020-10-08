@@ -1,13 +1,9 @@
 language: cpp
 
-dist: focal
+dist: bionic
 
-addons:
-    apt:
-        sources: &default_sources
-            - boost-latest
-        packages: &default_packages
-            - libboost1.71-all-dev
+services:
+  - mysql
 
 matrix:
   include:
@@ -39,9 +35,13 @@ before_install:
     - eval "${MATRIX_EVAL}"
 
 before_script:
-    - mkdir build
-    - cd build
-    - cmake -DCMAKE_BUILD_TYPE=Release -DWITH_TESTING=ON .. 
+    - sudo -E apt update -y
+    - sudo -E apt install -y libboost-all-dev
+    - ./test/setup-mysql.sh
 
 script:
+    - mkdir build && cd build
+    - cmake -DCMAKE_BUILD_TYPE=Release -DWITH_TESTING=ON ..
     - make
+    - cd .. && ./build/test/unit_test --list_content && ./build/test/unit_test --run_test=*test_HelloWorld*,*test_Gtid*
+    - test/run.sh
