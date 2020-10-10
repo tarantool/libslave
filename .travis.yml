@@ -1,35 +1,44 @@
 language: cpp
 
-dist: bionic
+_shared_job: &gcc-8
+  - os: linux
+    addons:
+      apt:
+        sources:
+          - *default_sources
+          - ubuntu-toolchain-r-test
+        packages:
+          - *default_packages
+          - g++-8
+    env:
+      - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
 
-services:
-  - mysql
+_shared_job: &clang-10
+  - os: linux
+    addons:
+      apt:
+        sources:
+          - *default_sources
+          - llvm-toolchain-trusty-5.0
+        packages:
+          - *default_packages
+          - clang-10
+    env:
+      - MATRIX_EVAL="CC=clang-10 && CXX=clang++-10"
 
 matrix:
   include:
-    - os: linux
-      addons:
-        apt:
-          sources:
-            - *default_sources
-            - ubuntu-toolchain-r-test
-          packages:
-            - *default_packages
-            - g++-8
-      env:
-        - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8"
-
-    - os: linux
-      addons:
-        apt:
-          sources:
-            - *default_sources
-            - llvm-toolchain-trusty-5.0
-          packages:
-            - *default_packages
-            - clang-10
-      env:
-        - MATRIX_EVAL="CC=clang-10 && CXX=clang++-10"
+    # MySQL 5.7 is installed by default on Ubuntu Bionic (18.04)
+    - name: Ubuntu 18.04 (Bionic), GCC 8, MySQL 5.7
+      dist: bionic
+      services:
+        - mysql
+      <<: *gcc-8
+    - name: Ubuntu 18.04 (Bionic), Clang 10, MySQL 5.7
+      dist: bionic
+      services:
+        - mysql
+      <<: *clang-10
 
 before_install:
     - eval "${MATRIX_EVAL}"
