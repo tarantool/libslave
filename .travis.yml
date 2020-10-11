@@ -26,6 +26,15 @@ _shared_job: &clang-10
     env:
       - MATRIX_EVAL="CC=clang-10 && CXX=clang++-10"
 
+_shared_job: &percona-5.7
+  - os: linux
+    before_install:
+      - sudo apt-get install -y gnupg2
+      - wget https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb
+      - sudo dpkg -i percona-release_latest.$(lsb_release -sc)_all.deb
+      - sudo apt-get update
+      - sudo apt-get install percona-server-server-5.7 percona-server-client-5.7
+
 matrix:
   include:
     # MySQL 5.7 is installed by default on Ubuntu Bionic (18.04)
@@ -38,6 +47,16 @@ matrix:
       dist: bionic
       services:
         - mysql
+      <<: *clang-10
+
+    # Percona 5.7
+    - name: Ubuntu 18.04 (Bionic), GCC 8, MySQL 5.7
+      dist: bionic
+      <<: *percona-5.7
+      <<: *gcc-8
+    - name: Ubuntu 18.04 (Bionic), Clang 10, MySQL 5.7
+      dist: bionic
+      <<: *percona-5.7
       <<: *clang-10
 
 before_install:
